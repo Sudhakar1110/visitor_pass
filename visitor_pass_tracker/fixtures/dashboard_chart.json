@@ -44,7 +44,7 @@
   "is_standard": 1,
   "module": "visitor_pass_tracker",
   "name": "Peak Visit Hours",
-  "source": "visitor_pass_tracker.visitor_pass_tracker.utils.get_peak_visit_hours",
+  "source": "visitor_pass_tracker.utils.get_peak_visit_hours",
   "timeseries": 0,
   "type": "Line"
  },

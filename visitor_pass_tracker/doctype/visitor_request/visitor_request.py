@@ -3,7 +3,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.model.workflow import apply_workflow
 
-from visitor_pass_tracker.visitor_pass_tracker.utils import (
+from visitor_pass_tracker.utils import (
 	check_blacklist,
 	create_entry_pass_for_request,
 )

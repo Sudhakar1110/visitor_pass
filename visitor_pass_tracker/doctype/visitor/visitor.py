@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from visitor_pass_tracker.visitor_pass_tracker.utils import _normalize_phone, check_blacklist
+from visitor_pass_tracker.utils import _normalize_phone, check_blacklist
 
 
 class Visitor(Document):

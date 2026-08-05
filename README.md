@@ -104,7 +104,7 @@ Gate hardware (QR/RFID readers, turnstiles) POSTs scan events to a whitelisted
 method (login required - use a service user + API keys):
 
 ```bash
-curl -X POST https://your-site.com/api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.submit_scan \
+curl -X POST https://your-site.com/api/method/visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.submit_scan \
   -H "Authorization: token <api_key>:<api_secret>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -147,7 +147,7 @@ matching `token` parameter.
 ## Development notes
 
 - `frappe.utils.fixtures.sync_fixtures` imports everything in
-  `visitor_pass_tracker/visitor_pass_tracker/fixtures/` (order defined in
+  `visitor_pass_tracker/fixtures/` (order defined in
   `hooks.py`). Re-export after UI changes: `bench --site <site> export-fixtures`.
 - QR codes are generated with `pyqrcode` (bundled with Frappe 15) as private
   PNG files (SVG fallback if `pypng` is missing).

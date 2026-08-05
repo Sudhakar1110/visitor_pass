@@ -82,7 +82,7 @@ fixtures = [
 	{
 		"dt": "Dashboard Chart Source",
 		"filters": [
-			["name", "=", "visitor_pass_tracker.visitor_pass_tracker.utils.get_peak_visit_hours"]
+			["name", "=", "visitor_pass_tracker.utils.get_peak_visit_hours"]
 		],
 	},
 	{
@@ -111,11 +111,11 @@ fixtures = [
 # Permissions - module-level hooks (Frappe 15 style)
 # ---------------------------------------------------------------------------
 has_permission = {
-	"Visitor Request": "visitor_pass_tracker.visitor_pass_tracker.doctype.visitor_request.visitor_request.has_permission",
+	"Visitor Request": "visitor_pass_tracker.doctype.visitor_request.visitor_request.has_permission",
 }
 
 permission_query_conditions = {
-	"Visitor Request": "visitor_pass_tracker.visitor_pass_tracker.doctype.visitor_request.visitor_request.get_permission_query_conditions",
+	"Visitor Request": "visitor_pass_tracker.doctype.visitor_request.visitor_request.get_permission_query_conditions",
 }
 
 # ---------------------------------------------------------------------------
@@ -128,7 +128,7 @@ permission_query_conditions = {
 scheduler_events = {
 	"cron": {
 		"*/15 * * * *": [
-			"visitor_pass_tracker.visitor_pass_tracker.utils.run_pass_expiry_checks",
+			"visitor_pass_tracker.utils.run_pass_expiry_checks",
 		],
 	},
 }
