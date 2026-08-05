@@ -7,14 +7,20 @@ description = "Automated visitor entry passes across multiple gates/locations fo
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
+# NOTE: do NOT list frappe / erpnext here - frappe's pyproject contains a
+# `gunicorn @ git+...` URL dependency that makes `uv pip install -e .`
+# fail when resolving it transitively. Frappe/ERPNext version requirements
+# are declared under [tool.bench.frappe-dependencies] instead (standard
+# Frappe 15 convention, same as ERPNext itself).
 dependencies = [
-"frappe>=15.0.0,<16.0.0",
-"erpnext>=15.0.0,<16.0.0",
 "pypng~=0.20220715.0",
 ]
 [build-system]
 requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
+[tool.bench.frappe-dependencies]
+frappe = ">=15.0.0,<16.0.0"
+erpnext = ">=15.0.0,<16.0.0"
 [project.urls]
 Homepage = "https://github.com/Sudhakar1110/visitor_pass"
 Repository = "https://github.com/Sudhakar1110/visitor_pass.git"
