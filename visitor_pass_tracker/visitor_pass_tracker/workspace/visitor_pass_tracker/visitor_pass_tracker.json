@@ -1,0 +1,193 @@
+{
+ "charts": [
+  {
+   "chart_name": "Visits by Purpose",
+   "label": "Visits by Purpose"
+  },
+  {
+   "chart_name": "Visits by Department",
+   "label": "Visits by Department"
+  },
+  {
+   "chart_name": "Peak Visit Hours",
+   "label": "Peak Visit Hours"
+  },
+  {
+   "chart_name": "Reconciliation Summary",
+   "label": "Reconciliation Summary"
+  }
+ ],
+ "content": "[{\"id\":\"vpt_1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Purpose\",\"col\":6}},{\"id\":\"vpt_2\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Department\",\"col\":6}},{\"id\":\"vpt_3\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Peak Visit Hours\",\"col\":6}},{\"id\":\"vpt_4\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Reconciliation Summary\",\"col\":6}},{\"id\":\"vpt_5\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Visitors On-Site Now\",\"col\":6}},{\"id\":\"vpt_6\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Passes Expiring in Next Hour\",\"col\":6}},{\"id\":\"vpt_7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"vpt_8\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"vpt_9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Visitor Request\",\"col\":3}},{\"id\":\"vpt_10\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Requests\",\"col\":3}},{\"id\":\"vpt_11\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Entry Passes\",\"col\":3}},{\"id\":\"vpt_12\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Logs\",\"col\":3}},{\"id\":\"vpt_13\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Reconciliation\",\"col\":3}},{\"id\":\"vpt_14\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Overview\",\"col\":3}},{\"id\":\"vpt_15\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"vpt_16\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"vpt_17\",\"type\":\"card\",\"data\":{\"card_name\":\"Visitors\",\"col\":4}},{\"id\":\"vpt_18\",\"type\":\"card\",\"data\":{\"card_name\":\"Requests & Entry Passes\",\"col\":4}},{\"id\":\"vpt_19\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup & Reports\",\"col\":4}}]",
+ "creation": "2026-01-01 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "user",
+ "idx": 1,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Visitor Pass Tracker",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Visitors",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Visitor",
+   "link_count": 0,
+   "link_to": "Visitor",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Blacklisted Visitor",
+   "link_count": 0,
+   "link_to": "Blacklisted Visitor",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Requests & Entry Passes",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Visitor Request",
+   "link_count": 0,
+   "link_to": "Visitor Request",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Entry Pass",
+   "link_count": 0,
+   "link_to": "Entry Pass",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Gate Log Entry",
+   "link_count": 0,
+   "link_to": "Gate Log Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Setup & Reports",
+   "link_count": 0,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Gate",
+   "link_count": 0,
+   "link_to": "Gate",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Visitor Reconciliation",
+   "link_count": 0,
+   "link_to": "Visitor Reconciliation",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "visitor_pass_tracker",
+ "name": "Visitor Pass Tracker",
+ "number_cards": [
+  {
+   "label": "Visitors On-Site Now",
+   "number_card_name": "Visitors On-Site Now"
+  },
+  {
+   "label": "Passes Expiring in Next Hour",
+   "number_card_name": "Passes Expiring in Next Hour"
+  }
+ ],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "doc_view": "New",
+   "label": "New Visitor Request",
+   "link_to": "Visitor Request",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Visitor Requests",
+   "link_to": "Visitor Request",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Entry Passes",
+   "link_to": "Entry Pass",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "Gate Logs",
+   "link_to": "Gate Log Entry",
+   "type": "DocType"
+  },
+  {
+   "label": "Visitor Reconciliation",
+   "link_to": "Visitor Reconciliation",
+   "type": "Report"
+  },
+  {
+   "label": "Visitor Overview",
+   "link_to": "Visitor Overview",
+   "type": "Dashboard"
+  }
+ ],
+ "title": "Visitor Pass Tracker"
+}
