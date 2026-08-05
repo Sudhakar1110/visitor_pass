@@ -47,7 +47,7 @@
   "dashboard_name": "Visitor Overview",
   "doctype": "Dashboard",
   "is_default": 0,
-  "is_standard": 1,
+  "is_standard": 0,
   "module": "visitor_pass_tracker",
   "name": "Visitor Overview"
  }
