@@ -64,7 +64,7 @@ def submit_scan(
 	"""Accept a scan event from gate scanner hardware (QR/RFID reader/turnstile).
 
 	Endpoint (POST, requires a logged-in service user / API key):
-	    /api/method/visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.submit_scan
+	    /api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.submit_scan
 
 	Optional hardening: set `visitor_pass_api_token` in site_config.json and pass
 	it as the `token` parameter - requests without the matching token are rejected.

@@ -111,11 +111,11 @@ fixtures = [
 # Permissions - module-level hooks (Frappe 15 style)
 # ---------------------------------------------------------------------------
 has_permission = {
-	"Visitor Request": "visitor_pass_tracker.doctype.visitor_request.visitor_request.has_permission",
+	"Visitor Request": "visitor_pass_tracker.visitor_pass_tracker.doctype.visitor_request.visitor_request.has_permission",
 }
 
 permission_query_conditions = {
-	"Visitor Request": "visitor_pass_tracker.doctype.visitor_request.visitor_request.get_permission_query_conditions",
+	"Visitor Request": "visitor_pass_tracker.visitor_pass_tracker.doctype.visitor_request.visitor_request.get_permission_query_conditions",
 }
 
 # ---------------------------------------------------------------------------

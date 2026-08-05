@@ -104,7 +104,7 @@ Gate hardware (QR/RFID readers, turnstiles) POSTs scan events to a whitelisted
 method (login required - use a service user + API keys):
 
 ```bash
-curl -X POST https://your-site.com/api/method/visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.submit_scan \
+curl -X POST https://your-site.com/api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.submit_scan \
   -H "Authorization: token <api_key>:<api_secret>" \
   -H "Content-Type: application/json" \
   -d '{
