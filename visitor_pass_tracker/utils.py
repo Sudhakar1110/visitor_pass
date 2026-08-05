@@ -143,48 +143,54 @@ def alert_security_of_overstays():
 	}
 
 	for entry in overstayers:
-		subject = _("Overstay: visitor {0} may still be on-site").format(
-			entry.visitor_name or entry.visitor or entry.name
-		)
-		message = _(
-			"<p>Entry Pass <b>{0}</b> (visitor <b>{1}</b>) expired at <b>{2}</b> but the "
-			"visitor has an entry scan and no exit scan - they may still be on-site at "
-			"<b>{3}</b>.</p><p>Please check the gate area and reconcile the visit.</p>"
-		).format(
-			entry.name,
-			entry.visitor_name or entry.visitor or "-",
-			frappe.utils.format_datetime(entry.valid_till),
-			entry.location_gate or "-",
-		)
-		for user in security_users:
-			frappe.get_doc(
-				{
-					"doctype": "Notification Log",
-					"for_user": user,
-					"from_user": "Administrator",
-					"subject": subject,
-					"document_type": "Entry Pass",
-					"document_name": entry.name,
-					"type": "Alert",
-				}
-			).insert(ignore_permissions=True)
-			try:
-				email = frappe.db.get_value("User", user, "email")
-				if email:
-					frappe.sendmail(
-						recipients=email,
-						subject=subject,
-						message=message,
-						reference_doctype="Entry Pass",
-						reference_name=entry.name,
+		try:
+			subject = _("Overstay: visitor {0} may still be on-site").format(
+				entry.visitor_name or entry.visitor or entry.name
+			)
+			message = _(
+				"<p>Entry Pass <b>{0}</b> (visitor <b>{1}</b>) expired at <b>{2}</b> but the "
+				"visitor has an entry scan and no exit scan - they may still be on-site at "
+				"<b>{3}</b>.</p><p>Please check the gate area and reconcile the visit.</p>"
+			).format(
+				entry.name,
+				entry.visitor_name or entry.visitor or "-",
+				frappe.utils.format_datetime(entry.valid_till),
+				entry.location_gate or "-",
+			)
+			for user in security_users:
+				frappe.get_doc(
+					{
+						"doctype": "Notification Log",
+						"for_user": user,
+						"from_user": "Administrator",
+						"subject": subject,
+						"document_type": "Entry Pass",
+						"document_name": entry.name,
+						"type": "Alert",
+					}
+				).insert(ignore_permissions=True)
+				try:
+					email = frappe.db.get_value("User", user, "email")
+					if email:
+						frappe.sendmail(
+							recipients=email,
+							subject=subject,
+							message=message,
+							reference_doctype="Entry Pass",
+							reference_name=entry.name,
+						)
+				except frappe.OutgoingEmailError:
+					frappe.log_error(
+						title=_("Visitor Pass Tracker: overstay email failed"),
+						message=f"Overstay alert email for Entry Pass {entry.name} could not be sent.",
 					)
-			except frappe.OutgoingEmailError:
-				frappe.log_error(
-					title=_("Visitor Pass Tracker: overstay email failed"),
-					message=f"Overstay alert email for Entry Pass {entry.name} could not be sent.",
-				)
-
-		frappe.db.set_value("Entry Pass", entry.name, "overstay_alert_sent", 1)
+		except Exception:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: overstay alert failed"),
+				message=frappe.get_traceback(),
+			)
+		finally:
+			frappe.db.set_value("Entry Pass", entry.name, "overstay_alert_sent", 1)
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +257,15 @@ def find_matching_visitors(phone=None, id_proof_number=None):
 	)
 	phone = _normalize_phone(phone)
 	id_proof = (id_proof_number or "").strip().lower()
+	if phone:
+		# fast path - exact phone match first (stored value equals the raw query)
+		exact_matches = frappe.get_all(
+			"Visitor",
+			filters={"phone": phone},
+			fields=["name", "visitor_name", "phone", "email", "company_name", "id_proof_number"],
+		)
+		if exact_matches:
+			return exact_matches[:20]
 	for v in visitors:
 		if phone and _normalize_phone(v.phone) == phone:
 			matches.append(v)

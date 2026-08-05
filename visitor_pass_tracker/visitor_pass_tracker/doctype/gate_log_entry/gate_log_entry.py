@@ -139,8 +139,9 @@ def _resolve_entry_pass(entry_pass):
 		if isinstance(payload, dict) and payload.get("entry_pass"):
 			name = payload["entry_pass"]
 			if frappe.db.exists("Entry Pass", name):
-				return name		except Exception:
-			pass
+				return name
+	except Exception:
+		pass
 	return None
 
 
@@ -164,12 +165,6 @@ def revoke_pass(entry_pass=None, remarks=None, token=None):
 	pass_doc.save(ignore_permissions=True)
 	frappe.db.commit()
 
-	frappe.log_error(
-		title=_("Visitor Pass Tracker: pass revoked"),
-		message="Entry Pass {0} revoked by {1}. Remarks: {2}".format(
-			pass_name, frappe.session.user, remarks or "-"
-		),
-	)
 	return {"status": "revoked", "entry_pass": pass_name, "remarks": remarks}
 
 
@@ -194,6 +189,8 @@ def manual_exit(entry_pass=None, gate=None, remarks=None, token=None):
 	pass_doc = frappe.get_doc("Entry Pass", pass_name)
 	if pass_doc.status == "Revoked":
 		frappe.throw(_("Entry Pass {0} is revoked").format(pass_name))
+	if pass_doc.status == "Used":
+		frappe.throw(_("Entry Pass {0} is already used - visit already closed").format(pass_name))
 
 	gate_name = _resolve_gate(gate) if gate else None
 	gate_name = gate_name or pass_doc.location_gate
