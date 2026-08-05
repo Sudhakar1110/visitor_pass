@@ -42,6 +42,27 @@
     "parentfield": "charts",
     "parenttype": "Dashboard",
     "width": "Half"
+   },
+   {
+    "chart": "Visits by Gate",
+    "parent": "Visitor Overview",
+    "parentfield": "charts",
+    "parenttype": "Dashboard",
+    "width": "Half"
+   },
+   {
+    "chart": "Visits by Month",
+    "parent": "Visitor Overview",
+    "parentfield": "charts",
+    "parenttype": "Dashboard",
+    "width": "Half"
+   },
+   {
+    "chart": "Visits per Host",
+    "parent": "Visitor Overview",
+    "parentfield": "charts",
+    "parenttype": "Dashboard",
+    "width": "Half"
    }
   ],
   "dashboard_name": "Visitor Overview",
