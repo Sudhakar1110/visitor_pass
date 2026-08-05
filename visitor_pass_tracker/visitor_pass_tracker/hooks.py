@@ -21,8 +21,10 @@ required_apps = ["erpnext"]
 #
 # Import order matters (linked records must exist before the documents that
 # reference them): Roles -> Workflow State / Workflow Action Master -> Workflow
-# -> Notification -> Report -> Dashboard Chart Source -> Dashboard Chart ->
-# Number Card -> Dashboard.
+# -> Notification -> Dashboard Chart Source -> Dashboard Chart -> Number Card
+# -> Dashboard. The "Visitor Reconciliation" script report is *not* a fixture -
+# it is synced from its report folder by frappe.model.sync during migrate
+# (standard script-report pattern, same as ERPNext).
 fixtures = [
 	{"dt": "Role", "filters": [["name", "in", ["Security Officer", "Department Head", "Reception"]]]},
 	{
@@ -77,7 +79,6 @@ fixtures = [
 			]
 		],
 	},
-	{"dt": "Report", "filters": [["name", "=", "Visitor Reconciliation"]]},
 	{
 		"dt": "Dashboard Chart Source",
 		"filters": [
