@@ -1,0 +1,20 @@
+[project]
+name = "visitor_pass_tracker"
+authors = [
+{ name = "Sudhakar", email = "sudhakar@example.com" }
+]
+description = "Automated visitor entry passes across multiple gates/locations for Frappe 15 / ERPNext 15"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+"frappe>=15.0.0,<16.0.0",
+"erpnext>=15.0.0,<16.0.0",
+"pypng~=0.20220715.0",
+]
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+[project.urls]
+Homepage = "https://github.com/Sudhakar1110/visitor_pass"
+Repository = "https://github.com/Sudhakar1110/visitor_pass.git"

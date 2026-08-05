@@ -1,0 +1,9 @@
+[
+ {
+  "doctype": "Dashboard Chart Source",
+  "module": "visitor_pass_tracker",
+  "name": "visitor_pass_tracker.visitor_pass_tracker.utils.get_peak_visit_hours",
+  "source_name": "visitor_pass_tracker.visitor_pass_tracker.utils.get_peak_visit_hours",
+  "timeseries": 0
+ }
+]

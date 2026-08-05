@@ -1,0 +1,44 @@
+[
+ {
+  "doctype": "Workflow State",
+  "name": "Draft",
+  "style": "",
+  "workflow_state_name": "Draft"
+ },
+ {
+  "doctype": "Workflow State",
+  "name": "Blacklist Check",
+  "style": "Info",
+  "workflow_state_name": "Blacklist Check"
+ },
+ {
+  "doctype": "Workflow State",
+  "name": "Pending Host Approval",
+  "style": "Primary",
+  "workflow_state_name": "Pending Host Approval"
+ },
+ {
+  "doctype": "Workflow State",
+  "name": "Pending Department Approval",
+  "style": "Primary",
+  "workflow_state_name": "Pending Department Approval"
+ },
+ {
+  "doctype": "Workflow State",
+  "name": "Pending Security Approval",
+  "style": "Warning",
+  "workflow_state_name": "Pending Security Approval"
+ },
+ {
+  "doctype": "Workflow State",
+  "name": "Approved",
+  "style": "Success",
+  "workflow_state_name": "Approved"
+ },
+ {
+  "doctype": "Workflow State",
+  "name": "Rejected",
+  "style": "Danger",
+  "workflow_state_name": "Rejected"
+ }
+]

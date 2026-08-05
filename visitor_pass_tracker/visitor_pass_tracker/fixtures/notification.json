@@ -1,0 +1,101 @@
+[
+ {
+  "channel": "Email",
+  "condition": "doc.workflow_state == \"Pending Host Approval\"",
+  "document_type": "Visitor Request",
+  "doctype": "Notification",
+  "enabled": 1,
+  "event": "Value Change",
+  "is_standard": 1,
+  "message": "<h3>Visitor Request {{ doc.name }}</h3><p>Visitor <b>{{ doc.visitor_name }}</b> ({{ doc.visitor_phone }}) is waiting for your approval for a visit on <b>{{ doc.visit_date }}</b>.</p><p>Purpose: {{ doc.purpose }} &nbsp;|&nbsp; Department: {{ doc.department }}</p><p>Please open the request and approve or reject it.</p>",
+  "message_type": "HTML",
+  "module": "visitor_pass_tracker",
+  "name": "Visitor Request Pending Host Approval",
+  "recipients": [
+   {
+    "parent": "Visitor Request Pending Host Approval",
+    "parentfield": "recipients",
+    "parenttype": "Notification",
+    "receiver_by_document_field": "host_user",
+    "receiver_by_role": ""
+   }
+  ],
+  "send_system_notification": 1,
+  "subject": "Visitor Request {{ doc.name }} is waiting for your approval",
+  "value_changed": "workflow_state"
+ },
+ {
+  "channel": "Email",
+  "condition": "doc.workflow_state == \"Approved\"",
+  "document_type": "Visitor Request",
+  "doctype": "Notification",
+  "enabled": 1,
+  "event": "Value Change",
+  "is_standard": 1,
+  "message": "<h3>Visitor Request Approved</h3><p>Visitor <b>{{ doc.visitor_name }}</b> for <b>{{ doc.visit_date }}</b> has been approved. An Entry Pass with a QR code will be generated automatically - Security will scan it at the gate.</p>",
+  "message_type": "HTML",
+  "module": "visitor_pass_tracker",
+  "name": "Visitor Request Approved",
+  "recipients": [
+   {
+    "parent": "Visitor Request Approved",
+    "parentfield": "recipients",
+    "parenttype": "Notification",
+    "receiver_by_document_field": "host_user",
+    "receiver_by_role": ""
+   }
+  ],
+  "send_system_notification": 1,
+  "subject": "Visitor Request {{ doc.name }} has been approved",
+  "value_changed": "workflow_state"
+ },
+ {
+  "channel": "Email",
+  "condition": "doc.workflow_state == \"Rejected\" and doc.blacklist_status == \"Flagged\"",
+  "document_type": "Visitor Request",
+  "doctype": "Notification",
+  "enabled": 1,
+  "event": "Value Change",
+  "is_standard": 1,
+  "message": "<h3>Visitor Flagged by Blacklist Check</h3><p>Visitor Request <b>{{ doc.name }}</b> for visitor <b>{{ doc.visitor_name }}</b> ({{ doc.visitor_phone }}) was <b>rejected</b> because the visitor matched an Active blacklist record.</p><p>Review the Blacklisted Visitor list and take appropriate action.</p>",
+  "message_type": "HTML",
+  "module": "visitor_pass_tracker",
+  "name": "Visitor Request Rejected - Blacklist",
+  "recipients": [
+   {
+    "parent": "Visitor Request Rejected - Blacklist",
+    "parentfield": "recipients",
+    "parenttype": "Notification",
+    "receiver_by_document_field": "",
+    "receiver_by_role": "Security Officer"
+   }
+  ],
+  "send_system_notification": 1,
+  "subject": "Visitor Request {{ doc.name }} rejected - visitor is blacklisted",
+  "value_changed": "workflow_state"
+ },
+ {
+  "channel": "Email",
+  "condition": "",
+  "document_type": "Entry Pass",
+  "doctype": "Notification",
+  "enabled": 1,
+  "event": "New",
+  "is_standard": 1,
+  "message": "<h3>Entry Pass {{ doc.name }} generated</h3><p>Visitor <b>{{ doc.visitor_name }}</b> &nbsp;|&nbsp; Valid from <b>{{ doc.valid_from }}</b> till <b>{{ doc.valid_till }}</b></p><p>The QR code is attached to the Entry Pass. Share it with Security at the gate.</p>",
+  "message_type": "HTML",
+  "module": "visitor_pass_tracker",
+  "name": "Entry Pass Generated",
+  "recipients": [
+   {
+    "parent": "Entry Pass Generated",
+    "parentfield": "recipients",
+    "parenttype": "Notification",
+    "receiver_by_document_field": "host_user",
+    "receiver_by_role": ""
+   }
+  ],
+  "send_system_notification": 1,
+  "subject": "Entry Pass {{ doc.name }} generated for visitor {{ doc.visitor_name }}"
+ }
+]

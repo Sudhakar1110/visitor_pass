@@ -1,0 +1,186 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Workflow",
+  "document_type": "Visitor Request",
+  "is_active": 1,
+  "name": "Visitor Request Workflow",
+  "override_status": 0,
+  "send_email_alert": 1,
+  "states": [
+   {
+    "allow_edit": "All",
+    "doc_status": "0",
+    "is_optional_state": 0,
+    "message": "",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 0,
+    "state": "Draft",
+    "update_field": "workflow_state",
+    "update_value": "Draft"
+   },
+   {
+    "allow_edit": "All",
+    "doc_status": "1",
+    "is_optional_state": 0,
+    "message": "",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 0,
+    "state": "Blacklist Check",
+    "update_field": "workflow_state",
+    "update_value": "Blacklist Check"
+   },
+   {
+    "allow_edit": "Employee",
+    "doc_status": "1",
+    "is_optional_state": 0,
+    "message": "",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 1,
+    "state": "Pending Host Approval",
+    "update_field": "workflow_state",
+    "update_value": "Pending Host Approval"
+   },
+   {
+    "allow_edit": "Department Head",
+    "doc_status": "1",
+    "is_optional_state": 0,
+    "message": "",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 0,
+    "state": "Pending Department Approval",
+    "update_field": "workflow_state",
+    "update_value": "Pending Department Approval"
+   },
+   {
+    "allow_edit": "Security Officer",
+    "doc_status": "1",
+    "is_optional_state": 0,
+    "message": "",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 1,
+    "state": "Pending Security Approval",
+    "update_field": "workflow_state",
+    "update_value": "Pending Security Approval"
+   },
+   {
+    "allow_edit": "All",
+    "doc_status": "1",
+    "is_optional_state": 0,
+    "message": "",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 0,
+    "state": "Approved",
+    "update_field": "workflow_state",
+    "update_value": "Approved"
+   },
+   {
+    "allow_edit": "All",
+    "doc_status": "1",
+    "is_optional_state": 0,
+    "message": "",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "states",
+    "parenttype": "Workflow",
+    "send_email": 0,
+    "state": "Rejected",
+    "update_field": "workflow_state",
+    "update_value": "Rejected"
+   }
+  ],
+  "transitions": [
+   {
+    "action": "Send for Blacklist Check",
+    "allow_self_approval": 1,
+    "allowed": "All",
+    "condition": null,
+    "next_state": "Blacklist Check",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Draft"
+   },
+   {
+    "action": "Blacklist Check Cleared",
+    "allow_self_approval": 1,
+    "allowed": "All",
+    "condition": null,
+    "next_state": "Pending Host Approval",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Blacklist Check"
+   },
+   {
+    "action": "Reject: Blacklisted",
+    "allow_self_approval": 1,
+    "allowed": "All",
+    "condition": null,
+    "next_state": "Rejected",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Blacklist Check"
+   },
+   {
+    "action": "Approve as Host",
+    "allow_self_approval": 1,
+    "allowed": "Employee",
+    "condition": null,
+    "next_state": "Pending Department Approval",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Pending Host Approval"
+   },
+   {
+    "action": "Approve by Department Head",
+    "allow_self_approval": 1,
+    "allowed": "Department Head",
+    "condition": null,
+    "next_state": "Pending Security Approval",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Pending Department Approval"
+   },
+   {
+    "action": "Skip for Delivery",
+    "allow_self_approval": 1,
+    "allowed": "All",
+    "condition": "doc.purpose == \"Delivery\"",
+    "next_state": "Pending Security Approval",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Pending Department Approval"
+   },
+   {
+    "action": "Approve by Security Officer",
+    "allow_self_approval": 1,
+    "allowed": "Security Officer",
+    "condition": null,
+    "next_state": "Approved",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Pending Security Approval"
+   }
+  ],
+  "workflow_data": null,
+  "workflow_name": "Visitor Request Workflow",
+  "workflow_state_field": "workflow_state"
+ }
+]

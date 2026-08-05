@@ -1,0 +1,160 @@
+# Visitor Pass Tracker
+
+A **Frappe 15 / ERPNext 15** app that automates visitor entry passes across
+multiple gates/locations. It reuses ERPNext's **Employee** and **Department**
+doctypes for host/approval routing, Frappe's **Contact** doctype for known
+external visitors, and Frappe's native **Workflow**, **Notification** and
+**Notification Log** features instead of duplicating them.
+
+```
+Draft -> Blacklist Check -> Pending Host Approval -> Pending Department
+Approval -> Pending Security Approval -> Approved | Rejected
+```
+
+---
+
+## Installation
+
+```bash
+# 1. Get the app into your bench (Frappe 15 + ERPNext 15 required)
+bench get-app https://github.com/Sudhakar1110/visitor_pass.git
+
+# 2. Install it on your site - roles, workflow, notifications, report,
+#    dashboard and charts are all shipped as fixtures and installed automatically
+bench --site <sitename> install-app visitor_pass_tracker
+
+# 3. Restart + migrate (scheduler picks up the 15-minute expiry job)
+bench --site <sitename> migrate
+bench restart
+```
+
+> **Scheduler**: the pass-expiry automation runs on a cron entry registered in
+> `hooks.py` (`*/15 * * * *`). Enable the scheduler with
+> `bench --site <sitename> scheduler enable`.
+
+> **Workflow emails**: the Workflow's native `send_email_alert` emails the *role*
+> that can perform the next action (e.g. all Employees for the host step).
+> Targeted alerts to the specific host / Security role are handled by the
+> Notification fixtures. If role-wide emails are too noisy, uncheck
+> `send_email_alert` on the Workflow and keep only the Notification-based alerts.
+
+---
+
+## Doctypes
+
+| Doctype             | Purpose                                                              |
+| ------------------- | -------------------------------------------------------------------- |
+| Visitor             | External visitor master (name, phone, email, ID proof, photo, company, optional `linked_contact` to ERPNext Contact) |
+| Blacklisted Visitor | Blacklist master - `status` Active/Lifted, blacklisted_by/on, reason |
+| Gate                | Gate / turnstile master (`gate_name`, `location` → Address, `device_id`) |
+| Visitor Request     | Submittable request: visitor, host (Employee), department (fetched), purpose, visit window, gate, `blacklist_status`, workflow-driven |
+| Entry Pass          | Auto-created on final approval: validity window, QR code, status Active/Expired/Used/Revoked |
+| Gate Log Entry      | Scan events from gate hardware; whitelisted `submit_scan` API         |
+
+---
+
+## Approval Workflow (native Workflow doctype)
+
+The state machine ships as the **"Visitor Request Workflow"** fixture - no state
+logic is hardcoded in Python. Only the *automatic* transitions are triggered by
+the controller (`visitor_request.py`):
+
+| From | To | Trigger |
+| ---- | -- | ------- |
+| Draft | Blacklist Check | **auto on Submit** (state set by the framework) |
+| Blacklist Check | Rejected | **auto** when `blacklist_status == "Flagged"` → native Notification alerts the **Security Officer** role |
+| Blacklist Check | Pending Host Approval | **auto** when the blacklist check is clear |
+| Pending Host Approval | Pending Department Approval | Role **Employee** (the host) - action `Approve as Host` |
+| Pending Department Approval | Pending Security Approval | Role **Department Head** - action `Approve by Department Head` |
+| Pending Department Approval | Pending Security Approval | **auto** for `purpose == "Delivery"` (transition `Skip for Delivery`, conditioned on `doc.purpose == "Delivery"`) |
+| Pending Security Approval | Approved | Role **Security Officer** - action `Approve by Security Officer` |
+| Approved | (Entry Pass) | **auto** - Entry Pass + QR code created from the visit window |
+
+Blacklist matching runs on **every save** of the request (including before
+insert) by comparing the linked Visitor's `phone` / `id_proof_number` against
+Active `Blacklisted Visitor` records (phone is normalized to digits).
+
+---
+
+## Automations
+
+1. **Pass-expiry alert (scheduler, every 15 min)** - `utils.run_pass_expiry_checks`
+   - Auto-marks `Entry Pass.status = "Expired"` when `valid_till` passes.
+   - Creates a **Notification Log** (standard notification bell) + **Email** to
+     the host user for Active passes expiring within the next 30 minutes
+     (deduplicated via the hidden `expiry_alert_sent` flag).
+
+2. **Visitor Reconciliation (Script Report)** - run it from the dashboard card
+   or the report list. Flags with color-coded `indicator` styling:
+   - 🟡 **No-show** - pass was never scanned at any gate
+   - 🟠 **Overstay** - entry scan exists, no exit scan, and `valid_till` passed
+   - 🔴 **Unauthorized** - gate log with no matching valid pass
+   - 🟢 **On-site** / **Completed** - healthy records
+   The report also returns a chart + summary cards (so it renders as a
+   dashboard card).
+
+3. **Blacklist auto-check** - on the `Visitor Request` controller
+   (`validate` + auto-reject in `on_submit`).
+
+---
+
+## Gate scanner API
+
+Gate hardware (QR/RFID readers, turnstiles) POSTs scan events to a whitelisted
+method (login required - use a service user + API keys):
+
+```bash
+curl -X POST https://your-site.com/api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.submit_scan \
+  -H "Authorization: token <api_key>:<api_secret>" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "entry_pass": "PASS-2026-00001",   # or paste the QR payload (JSON string)
+        "gate": "Main Gate",               # Gate name or device_id
+        "scan_type": "Entry",              # Entry | Exit
+        "scanned_by_device": "TURNSTILE-01"
+      }'
+```
+
+Response: `{"status": "authorized" | "unauthorized", ...}`. An authorized Exit
+scan automatically marks the pass as **Used**. To harden the endpoint, set
+`visitor_pass_api_token` in `site_config.json`; every request must then pass the
+matching `token` parameter.
+
+---
+
+## Dashboard: "Visitor Overview"
+
+- **Number cards**: Visitors On-Site Now (Active pass + entry scan, no exit
+  scan) · Passes Expiring in Next Hour
+- **Charts**: Visits by Purpose (pie) · Visits by Department (bar) ·
+  Peak Visit Hours (line, from Gate Log Entry scan times) · Reconciliation
+  Summary (report card)
+
+---
+
+## Permissions
+
+| Role | Access |
+| ---- | ------ |
+| **Security Officer** | Full access to Visitor Request, Gate Log Entry, Blacklisted Visitor, Gate; approves the security step |
+| **Employee** (host) | Creates Visitor Requests, approves their own step; `has_permission` scopes them to requests where they are the host (or owner) |
+| **Department Head** | Approves the department step for requests in their department (incl. sub-departments) |
+| **Reception** | Creates Visitor + Visitor Request, views Entry Pass QR for printing/display |
+| **System Manager** | Full administrative access |
+
+---
+
+## Development notes
+
+- `frappe.utils.fixtures.sync_fixtures` imports everything in
+  `visitor_pass_tracker/visitor_pass_tracker/fixtures/` (order defined in
+  `hooks.py`). Re-export after UI changes: `bench --site <site> export-fixtures`.
+- QR codes are generated with `pyqrcode` (bundled with Frappe 15) as private
+  PNG files (SVG fallback if `pypng` is missing).
+- The `Visitor` doctype uses hash naming; `Visitor Request` uses `VREQ-.YYYY.-`
+  and `Entry Pass` uses `PASS-.YYYY.-`.
+- Requires ERPNext 15 (Employee / Department / Address doctypes).
+
+## License
+
+MIT

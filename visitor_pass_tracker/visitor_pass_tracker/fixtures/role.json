@@ -1,0 +1,35 @@
+[
+ {
+  "desk_access": 1,
+  "disabled": 0,
+  "doctype": "Role",
+  "is_custom": 0,
+  "module": "visitor_pass_tracker",
+  "name": "Security Officer",
+  "notifications": 1,
+  "role_name": "Security Officer",
+  "search_bar": 1
+ },
+ {
+  "desk_access": 1,
+  "disabled": 0,
+  "doctype": "Role",
+  "is_custom": 0,
+  "module": "visitor_pass_tracker",
+  "name": "Department Head",
+  "notifications": 1,
+  "role_name": "Department Head",
+  "search_bar": 1
+ },
+ {
+  "desk_access": 1,
+  "disabled": 0,
+  "doctype": "Role",
+  "is_custom": 0,
+  "module": "visitor_pass_tracker",
+  "name": "Reception",
+  "notifications": 1,
+  "role_name": "Reception",
+  "search_bar": 1
+ }
+]

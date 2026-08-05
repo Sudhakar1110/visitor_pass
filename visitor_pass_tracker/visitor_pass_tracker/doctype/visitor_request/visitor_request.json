@@ -1,0 +1,260 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-01-01 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "visitor",
+  "visitor_name",
+  "visitor_phone",
+  "column_break_4",
+  "host",
+  "host_name",
+  "host_user",
+  "department",
+  "section_break_9",
+  "purpose",
+  "visit_date",
+  "expected_in_time",
+  "expected_out_time",
+  "column_break_14",
+  "location_gate",
+  "blacklist_status",
+  "workflow_state",
+  "notes"
+ ],
+ "fields": [
+  {
+   "default": "VREQ-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "no_copy": 1,
+   "options": "VREQ-.YYYY.-",
+   "print_hide": 1,
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "visitor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Visitor",
+   "options": "Visitor",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "visitor.visitor_name",
+   "fieldname": "visitor_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Visitor Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "visitor.phone",
+   "fieldname": "visitor_phone",
+   "fieldtype": "Data",
+   "label": "Visitor Phone",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "host",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Host (Employee)",
+   "options": "Employee",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "host.employee_name",
+   "fieldname": "host_name",
+   "fieldtype": "Data",
+   "label": "Host Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "host.user_id",
+   "fieldname": "host_user",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Host User",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "host.department",
+   "fieldname": "department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Department",
+   "options": "Department",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_9",
+   "fieldtype": "Section Break",
+   "label": "Visit Details"
+  },
+  {
+   "default": "Meeting",
+   "fieldname": "purpose",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Purpose",
+   "options": "Meeting\nInterview\nDelivery\nMaintenance\nOther"
+  },
+  {
+   "default": "Today",
+   "fieldname": "visit_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Visit Date",
+   "reqd": 1
+  },
+  {
+   "default": "09:00:00",
+   "fieldname": "expected_in_time",
+   "fieldtype": "Time",
+   "label": "Expected In Time",
+   "reqd": 1
+  },
+  {
+   "default": "18:00:00",
+   "fieldname": "expected_out_time",
+   "fieldtype": "Time",
+   "label": "Expected Out Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_14",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "location_gate",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Location / Gate",
+   "options": "Gate"
+  },
+  {
+   "default": "Not Checked",
+   "fieldname": "blacklist_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Blacklist Status",
+   "options": "Not Checked\nClear\nFlagged",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "workflow_state",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Workflow State",
+   "no_copy": 1,
+   "options": "Draft\nBlacklist Check\nPending Host Approval\nPending Department Approval\nPending Security Approval\nApproved\nRejected",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "icon": "octicon octicon-checklist",
+ "idx": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-01-01 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "visitor_pass_tracker",
+ "name": "Visitor Request",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Employee",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Security Officer",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Reception",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Department Head",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "show_name_in_global_search": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "visitor_name",
+ "track_changes": 1
+}

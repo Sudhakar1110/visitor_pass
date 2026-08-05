@@ -1,0 +1,54 @@
+[
+ {
+  "cards": [
+   {
+    "card": "Visitors On-Site Now",
+    "parent": "Visitor Overview",
+    "parentfield": "cards",
+    "parenttype": "Dashboard"
+   },
+   {
+    "card": "Passes Expiring in Next Hour",
+    "parent": "Visitor Overview",
+    "parentfield": "cards",
+    "parenttype": "Dashboard"
+   }
+  ],
+  "charts": [
+   {
+    "chart": "Visits by Purpose",
+    "parent": "Visitor Overview",
+    "parentfield": "charts",
+    "parenttype": "Dashboard",
+    "width": "Half"
+   },
+   {
+    "chart": "Visits by Department",
+    "parent": "Visitor Overview",
+    "parentfield": "charts",
+    "parenttype": "Dashboard",
+    "width": "Half"
+   },
+   {
+    "chart": "Reconciliation Summary",
+    "parent": "Visitor Overview",
+    "parentfield": "charts",
+    "parenttype": "Dashboard",
+    "width": "Half"
+   },
+   {
+    "chart": "Peak Visit Hours",
+    "parent": "Visitor Overview",
+    "parentfield": "charts",
+    "parenttype": "Dashboard",
+    "width": "Half"
+   }
+  ],
+  "dashboard_name": "Visitor Overview",
+  "doctype": "Dashboard",
+  "is_default": 0,
+  "is_standard": 1,
+  "module": "visitor_pass_tracker",
+  "name": "Visitor Overview"
+ }
+]

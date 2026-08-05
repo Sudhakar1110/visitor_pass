@@ -1,0 +1,37 @@
+[
+ {
+  "doctype": "Workflow Action Master",
+  "name": "Send for Blacklist Check",
+  "workflow_action_name": "Send for Blacklist Check"
+ },
+ {
+  "doctype": "Workflow Action Master",
+  "name": "Blacklist Check Cleared",
+  "workflow_action_name": "Blacklist Check Cleared"
+ },
+ {
+  "doctype": "Workflow Action Master",
+  "name": "Reject: Blacklisted",
+  "workflow_action_name": "Reject: Blacklisted"
+ },
+ {
+  "doctype": "Workflow Action Master",
+  "name": "Approve as Host",
+  "workflow_action_name": "Approve as Host"
+ },
+ {
+  "doctype": "Workflow Action Master",
+  "name": "Approve by Department Head",
+  "workflow_action_name": "Approve by Department Head"
+ },
+ {
+  "doctype": "Workflow Action Master",
+  "name": "Skip for Delivery",
+  "workflow_action_name": "Skip for Delivery"
+ },
+ {
+  "doctype": "Workflow Action Master",
+  "name": "Approve by Security Officer",
+  "workflow_action_name": "Approve by Security Officer"
+ }
+]
