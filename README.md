@@ -46,10 +46,10 @@ bench restart
 | ------------------- | -------------------------------------------------------------------- |
 | Visitor             | External visitor master (name, phone, email, ID proof, photo, company, optional `linked_contact` to ERPNext Contact) |
 | Blacklisted Visitor | Blacklist master - `status` Active/Lifted, blacklisted_by/on, reason |
-| Gate                | Gate / turnstile master (`gate_name`, `location` → Address, `device_id`) |
+| Gate                | Gate / turnstile master (`gate_name`, `location` → Address, optional `company`, `device_id`) |
 | Visitor Request     | Submittable request: visitor, host (Employee), department (fetched), purpose, visit window, gate, `blacklist_status`, workflow-driven |
 | Entry Pass          | Auto-created on final approval: validity window, QR code, status Active/Expired/Used/Revoked |
-| Gate Log Entry      | Scan events from gate hardware; whitelisted `submit_scan` API         |
+| Gate Log Entry      | Scan events from gate hardware; whitelisted `submit_scan` / `manual_exit` / `revoke_pass` APIs; carries `visitor_name` + `host_user` (fetched) for notifications |
 
 ---
 
@@ -78,11 +78,22 @@ Active `Blacklisted Visitor` records (phone is normalized to digits).
 
 ## Automations
 
-1. **Pass-expiry alert (scheduler, every 15 min)** - `utils.run_pass_expiry_checks`
+1. **Pass-expiry + overstay alert (scheduler, every 15 min)** - `utils.run_pass_expiry_checks`
    - Auto-marks `Entry Pass.status = "Expired"` when `valid_till` passes.
    - Creates a **Notification Log** (standard notification bell) + **Email** to
      the host user for Active passes expiring within the next 30 minutes
      (deduplicated via the hidden `expiry_alert_sent` flag).
+   - **Overstay alert** - when a pass is past `valid_till` but has an entry
+     scan and no exit scan, all **Security Officer** users are notified
+     (deduplicated via the hidden `overstay_alert_sent` flag).
+
+1b. **Gate notifications (native Notification fixtures)**
+   - **Visitor Arrived** - authorized `Entry` scan on `Gate Log Entry` →
+     Notification Log + Email to the host (`host_user`, fetched onto the log).
+   - **Unauthorized Scan Detected** - any `is_authorized == 0` scan → alerts
+     the **Security Officer** role.
+   - **Entry Pass Generated** - the QR code is attached to the host email
+     (`attach_files = From Field` → `qr_code`).
 
 2. **Visitor Reconciliation (Script Report)** - run it from the dashboard card
    or the report list. Flags with color-coded `indicator` styling:
@@ -120,6 +131,27 @@ scan automatically marks the pass as **Used**. To harden the endpoint, set
 `visitor_pass_api_token` in `site_config.json`; every request must then pass the
 matching `token` parameter.
 
+### Gate operations (incident / manual handling)
+
+```bash
+# Instantly revoke a pass (lost badge / security incident)
+curl -X POST https://your-site.com/api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.revoke_pass \
+  -H "Authorization: token <api_key>:<api_secret>" \
+  -H "Content-Type: application/json" \
+  -d '{"entry_pass": "PASS-2026-00001", "remarks": "Visitor left without exiting"}'
+
+# Close a visit without a scan (lost pass / manual exit) - logs an Exit scan + marks pass Used
+curl -X POST https://your-site.com/api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.manual_exit \
+  -H "Authorization: token <api_key>:<api_secret>" \
+  -H "Content-Type: application/json" \
+  -d '{"entry_pass": "PASS-2026-00001", "gate": "Main Gate", "remarks": "Manual exit at gate"}'
+```
+
+Duplicate detection: `visitor_pass_tracker.utils.find_matching_visitors` (whitelisted)
+returns existing Visitors matching a phone / ID proof, and `Visitor Request`
+auto-links the existing Visitor master when a phone number is entered without
+selecting a Visitor.
+
 ---
 
 ## Dashboard: "Visitor Overview"
@@ -128,7 +160,19 @@ matching `token` parameter.
   scan) · Passes Expiring in Next Hour
 - **Charts**: Visits by Purpose (pie) · Visits by Department (bar) ·
   Peak Visit Hours (line, from Gate Log Entry scan times) · Reconciliation
-  Summary (report card)
+  Summary (report card) · Visits by Gate (bar) · Visits by Month (timeseries)
+  · Visits per Host (bar)
+
+## Printing
+
+- **Entry Pass Badge** print format (standard, Jinja) ships with the app -
+  print it from any Entry Pass (photo, host, gate, validity window, QR code).
+- New **Visitors** get an ERPNext **Contact** auto-created and linked via
+  `linked_contact` (skipped when no email/phone; failures are logged).
+- **Visitor Request** carries `vehicle_number` + `is_escort_required` for
+  contractor / escorted visits; **Gate** carries an optional `company`.
+- **Daily Visitor Register** script report - printable security logbook of all
+  gate scans (per day / gate / status).
 
 ---
 

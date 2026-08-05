@@ -17,9 +17,12 @@ def run_pass_expiry_checks():
 	1. Auto-expire Entry Passes whose valid_till has passed.
 	2. Alert hosts about Active passes expiring within the next 30 minutes
 	   (Notification Log + Email to the host user).
+	3. Alert the Security Officer role about overstaying visitors (entry scan
+	   present, no exit scan, past valid_till).
 	"""
 	expire_passes()
 	alert_hosts_of_upcoming_expiry()
+	alert_security_of_overstays()
 
 
 def expire_passes():
@@ -100,6 +103,90 @@ def alert_hosts_of_upcoming_expiry():
 		frappe.db.set_value("Entry Pass", entry.name, "expiry_alert_sent", 1)
 
 
+def alert_security_of_overstays():
+	"""Alert the Security Officer role about visitors still on-site after their
+	pass expired (entry scan exists, no exit scan, past valid_till).
+	Deduplicated via the hidden `overstay_alert_sent` flag.
+	"""
+	now = now_datetime()
+	passes = frappe.get_all(
+		"Entry Pass",
+		filters={
+			"status": "Active",
+			"valid_till": ("<", now),
+			"overstay_alert_sent": 0,
+		},
+		fields=["name", "visitor", "visitor_name", "location_gate", "valid_till"],
+	)
+
+	overstayers = []
+	for entry in passes:
+		has_entry = frappe.db.exists(
+			"Gate Log Entry",
+			{"entry_pass": entry.name, "scan_type": "Entry", "docstatus": ("<", 2)},
+		)
+		has_exit = frappe.db.exists(
+			"Gate Log Entry",
+			{"entry_pass": entry.name, "scan_type": "Exit", "docstatus": ("<", 2)},
+		)
+		if has_entry and not has_exit:
+			overstayers.append(entry)
+
+	if not overstayers:
+		return
+
+	security_users = frappe.get_all(
+		"Has Role", filters={"role": "Security Officer"}, pluck="parent"
+	)
+	security_users = {
+		u for u in security_users if u and frappe.db.get_value("User", u, "enabled")
+	}
+
+	for entry in overstayers:
+		subject = _("Overstay: visitor {0} may still be on-site").format(
+			entry.visitor_name or entry.visitor or entry.name
+		)
+		message = _(
+			"<p>Entry Pass <b>{0}</b> (visitor <b>{1}</b>) expired at <b>{2}</b> but the "
+			"visitor has an entry scan and no exit scan - they may still be on-site at "
+			"<b>{3}</b>.</p><p>Please check the gate area and reconcile the visit.</p>"
+		).format(
+			entry.name,
+			entry.visitor_name or entry.visitor or "-",
+			frappe.utils.format_datetime(entry.valid_till),
+			entry.location_gate or "-",
+		)
+		for user in security_users:
+			frappe.get_doc(
+				{
+					"doctype": "Notification Log",
+					"for_user": user,
+					"from_user": "Administrator",
+					"subject": subject,
+					"document_type": "Entry Pass",
+					"document_name": entry.name,
+					"type": "Alert",
+				}
+			).insert(ignore_permissions=True)
+			try:
+				email = frappe.db.get_value("User", user, "email")
+				if email:
+					frappe.sendmail(
+						recipients=email,
+						subject=subject,
+						message=message,
+						reference_doctype="Entry Pass",
+						reference_name=entry.name,
+					)
+			except frappe.OutgoingEmailError:
+				frappe.log_error(
+					title=_("Visitor Pass Tracker: overstay email failed"),
+					message=f"Overstay alert email for Entry Pass {entry.name} could not be sent.",
+				)
+
+		frappe.db.set_value("Entry Pass", entry.name, "overstay_alert_sent", 1)
+
+
 # ---------------------------------------------------------------------------
 # Blacklist auto-check
 # ---------------------------------------------------------------------------
@@ -134,6 +221,44 @@ def check_blacklist(visitor):
 		if id_proof and (rec.get("id_proof_number") or "").strip().lower() == id_proof:
 			return True
 	return False
+
+
+# ---------------------------------------------------------------------------
+# Duplicate detection - find the existing Visitor master
+# ---------------------------------------------------------------------------
+
+
+@frappe.whitelist()
+def find_matching_visitors(phone=None, id_proof_number=None):
+	"""Return existing Visitors matching the given phone and/or ID proof number.
+
+	Used by the desk / web forms / API to suggest (and auto-select) the
+	existing visitor master instead of creating a duplicate. Returns a list
+	of {name, visitor_name, phone, email, company_name, id_proof_number}.
+	"""
+	matches = []
+	visitors = frappe.get_all(
+		"Visitor",
+		fields=[
+			"name",
+			"visitor_name",
+			"phone",
+			"email",
+			"company_name",
+			"id_proof_number",
+		],
+		order_by="modified desc",
+	)
+	phone = _normalize_phone(phone)
+	id_proof = (id_proof_number or "").strip().lower()
+	for v in visitors:
+		if phone and _normalize_phone(v.phone) == phone:
+			matches.append(v)
+		elif id_proof and (v.id_proof_number or "").strip().lower() == id_proof:
+			matches.append(v)
+		if len(matches) >= 20:
+			break
+	return matches
 
 
 # ---------------------------------------------------------------------------

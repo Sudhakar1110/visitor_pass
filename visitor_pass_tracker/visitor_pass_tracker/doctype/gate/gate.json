@@ -8,6 +8,7 @@
  "field_order": [
   "gate_name",
   "location",
+  "company",
   "device_id",
   "is_active"
  ],
@@ -26,6 +27,13 @@
    "fieldtype": "Link",
    "label": "Location (Address)",
    "options": "Address"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company"
   },
   {
    "fieldname": "device_id",

@@ -4,6 +4,7 @@ from frappe.model.document import Document
 from frappe.model.workflow import apply_workflow
 
 from visitor_pass_tracker.utils import (
+	_normalize_phone,
 	check_blacklist,
 	create_entry_pass_for_request,
 )
@@ -11,8 +12,24 @@ from visitor_pass_tracker.utils import (
 
 class VisitorRequest(Document):
 	def validate(self):
+		self.match_existing_visitor()
 		self.validate_blacklist()
 		self.validate_visit_window()
+
+	def match_existing_visitor(self):
+		"""Duplicate detection - when no Visitor is linked but a phone number is
+		available, auto-link the existing Visitor master with the same phone
+		instead of letting a duplicate slip through."""
+		if self.visitor:
+			return
+		phone = _normalize_phone(self.visitor_phone)
+		if not phone:
+			return
+		visitors = frappe.get_all("Visitor", fields=["name", "phone"], order_by="modified desc")
+		for v in visitors:
+			if _normalize_phone(v.phone) == phone:
+				self.visitor = v.name
+				break
 
 	# ------------------------------------------------------------------
 	# Blacklist auto-check (Server Script equivalent)

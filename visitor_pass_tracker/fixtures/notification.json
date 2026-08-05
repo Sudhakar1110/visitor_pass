@@ -75,14 +75,16 @@
   "value_changed": "workflow_state"
  },
  {
+  "attach_files": "From Field",
   "channel": "Email",
   "condition": "",
   "document_type": "Entry Pass",
   "doctype": "Notification",
   "enabled": 1,
   "event": "New",
+  "from_attach_field": "qr_code",
   "is_standard": 0,
-  "message": "<h3>Entry Pass {{ doc.name }} generated</h3><p>Visitor <b>{{ doc.visitor_name }}</b> &nbsp;|&nbsp; Valid from <b>{{ doc.valid_from }}</b> till <b>{{ doc.valid_till }}</b></p><p>The QR code is attached to the Entry Pass. Share it with Security at the gate.</p>",
+  "message": "<h3>Entry Pass {{ doc.name }} generated</h3><p>Visitor <b>{{ doc.visitor_name }}</b> &nbsp;|&nbsp; Valid from <b>{{ doc.valid_from }}</b> till <b>{{ doc.valid_till }}</b></p><p>The QR code is attached to this email - share it with Security at the gate.</p>{% if doc.qr_code %}<p><img src=\"{{ doc.qr_code }}\" style=\"width: 160px;\"></p>{% endif %}",
   "message_type": "HTML",
   "module": "visitor_pass_tracker",
   "name": "Entry Pass Generated",

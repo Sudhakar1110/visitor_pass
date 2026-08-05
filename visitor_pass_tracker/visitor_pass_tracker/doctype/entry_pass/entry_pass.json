@@ -19,7 +19,8 @@
   "valid_till",
   "column_break_12",
   "status",
-  "expiry_alert_sent"
+  "expiry_alert_sent",
+  "overstay_alert_sent"
  ],
  "fields": [
   {
@@ -131,6 +132,14 @@
    "fieldtype": "Check",
    "hidden": 1,
    "label": "Expiry Alert Sent",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "overstay_alert_sent",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Overstay Alert Sent",
    "read_only": 1
   }
  ],

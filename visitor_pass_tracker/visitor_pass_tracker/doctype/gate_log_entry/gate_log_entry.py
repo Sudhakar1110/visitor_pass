@@ -139,7 +139,84 @@ def _resolve_entry_pass(entry_pass):
 		if isinstance(payload, dict) and payload.get("entry_pass"):
 			name = payload["entry_pass"]
 			if frappe.db.exists("Entry Pass", name):
-				return name
-	except Exception:
-		pass
+				return name		except Exception:
+			pass
 	return None
+
+
+@frappe.whitelist()
+def revoke_pass(entry_pass=None, remarks=None, token=None):
+	"""Instantly revoke an Entry Pass (incident response).
+
+	Endpoint (POST, requires a logged-in service user / API key):
+	    /api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.revoke_pass
+
+	Same optional hardening as submit_scan - set `visitor_pass_api_token` in
+	site_config.json and pass it as the `token` parameter.
+	"""
+	_validate_api_token(token)
+	pass_name = _resolve_entry_pass(entry_pass)
+	if not pass_name:
+		frappe.throw(_("Entry Pass not found: {0}").format(entry_pass))
+
+	pass_doc = frappe.get_doc("Entry Pass", pass_name)
+	pass_doc.status = "Revoked"
+	pass_doc.save(ignore_permissions=True)
+	frappe.db.commit()
+
+	frappe.log_error(
+		title=_("Visitor Pass Tracker: pass revoked"),
+		message="Entry Pass {0} revoked by {1}. Remarks: {2}".format(
+			pass_name, frappe.session.user, remarks or "-"
+		),
+	)
+	return {"status": "revoked", "entry_pass": pass_name, "remarks": remarks}
+
+
+@frappe.whitelist()
+def manual_exit(entry_pass=None, gate=None, remarks=None, token=None):
+	"""Close a visit without a gate scan (lost pass / manual exit).
+
+	Logs an Exit Gate Log Entry (remarks recorded) and marks the pass Used,
+	matching what an authorized exit scan does.
+
+	Endpoint (POST, requires a logged-in service user / API key):
+	    /api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.manual_exit
+
+	`gate` may be the Gate name or the Gate's device_id; defaults to the
+	pass's own location_gate.
+	"""
+	_validate_api_token(token)
+	pass_name = _resolve_entry_pass(entry_pass)
+	if not pass_name:
+		frappe.throw(_("Entry Pass not found: {0}").format(entry_pass))
+
+	pass_doc = frappe.get_doc("Entry Pass", pass_name)
+	if pass_doc.status == "Revoked":
+		frappe.throw(_("Entry Pass {0} is revoked").format(pass_name))
+
+	gate_name = _resolve_gate(gate) if gate else None
+	gate_name = gate_name or pass_doc.location_gate
+	if not gate_name:
+		frappe.throw(_("Gate is required to close the visit (pass has no Location / Gate)"))
+
+	log = frappe.get_doc(
+		{
+			"doctype": "Gate Log Entry",
+			"entry_pass": pass_name,
+			"gate": gate_name,
+			"scan_type": "Exit",
+			"scan_time": now_datetime(),
+			"remarks": remarks or _("Manual exit - visit closed by Security"),
+		}
+	)
+	log.insert(ignore_permissions=True)
+	frappe.db.set_value("Entry Pass", pass_name, "status", "Used")
+	frappe.db.commit()
+
+	return {
+		"status": "used",
+		"entry_pass": pass_name,
+		"gate": gate_name,
+		"scan_time": str(log.scan_time),
+	}
