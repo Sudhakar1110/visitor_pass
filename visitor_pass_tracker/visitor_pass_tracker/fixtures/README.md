@@ -7,8 +7,10 @@ when the app is installed:
 bench --site <sitename> install-app visitor_pass_tracker
 ```
 
-The import order is defined by the `fixtures` list in `hooks.py` (linked records
-must exist before the documents referencing them):
+In Frappe 15 `sync_fixtures` imports every `*.json` in this folder directly
+(alphabetically, with link & mandatory validation relaxed during import), so
+file order does not matter. The `fixtures` list in `hooks.py` is used by
+`bench export-fixtures` to regenerate these files:
 
 1. `role.json` — Security Officer, Department Head, Reception roles
 2. `workflow_state.json` — the 7 workflow states (Frappe 15 `Workflow State` records)
