@@ -41,10 +41,12 @@ class GateLogEntry(Document):
 	def set_linked_fields(self):
 		if self.entry_pass:
 			values = frappe.db.get_value(
-				"Entry Pass", self.entry_pass, ["visitor", "visitor_request"]
+				"Entry Pass",
+				self.entry_pass,
+				["visitor", "visitor_request", "visitor_name", "host_user"],
 			)
 			if values:
-				self.visitor, self.visitor_request = values
+				self.visitor, self.visitor_request, self.visitor_name, self.host_user = values
 
 
 # ---------------------------------------------------------------------------

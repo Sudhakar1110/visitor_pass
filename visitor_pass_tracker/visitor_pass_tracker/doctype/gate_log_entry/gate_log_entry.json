@@ -9,7 +9,9 @@
   "entry_pass",
   "visitor_request",
   "visitor",
+  "visitor_name",
   "gate",
+  "host_user",
   "column_break_5",
   "scan_type",
   "scan_time",
@@ -42,6 +44,14 @@
    "read_only": 1
   },
   {
+   "fetch_from": "visitor.visitor_name",
+   "fieldname": "visitor_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Visitor Name",
+   "read_only": 1
+  },
+  {
    "fieldname": "gate",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -49,6 +59,14 @@
    "label": "Gate",
    "options": "Gate",
    "reqd": 1
+  },
+  {
+   "fetch_from": "visitor_request.host_user",
+   "fieldname": "host_user",
+   "fieldtype": "Link",
+   "label": "Host User",
+   "options": "User",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_5",

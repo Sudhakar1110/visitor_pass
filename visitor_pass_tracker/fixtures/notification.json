@@ -97,5 +97,53 @@
   ],
   "send_system_notification": 1,
   "subject": "Entry Pass {{ doc.name }} generated for visitor {{ doc.visitor_name }}"
+ },
+ {
+  "channel": "Email",
+  "condition": "doc.is_authorized == 1 and doc.scan_type == \"Entry\"",
+  "document_type": "Gate Log Entry",
+  "doctype": "Notification",
+  "enabled": 1,
+  "event": "New",
+  "is_standard": 0,
+  "message": "<h3>Visitor Arrived</h3><p>Visitor <b>{{ doc.visitor_name }}</b> has arrived at gate <b>{{ doc.gate }}</b> on <b>{{ doc.scan_time }}</b> and presented Entry Pass <b>{{ doc.entry_pass }}</b>.</p><p>Please be ready to receive them at the gate.</p>",
+  "message_type": "HTML",
+  "module": "visitor_pass_tracker",
+  "name": "Visitor Arrived",
+  "recipients": [
+   {
+    "parent": "Visitor Arrived",
+    "parentfield": "recipients",
+    "parenttype": "Notification",
+    "receiver_by_document_field": "host_user",
+    "receiver_by_role": ""
+   }
+  ],
+  "send_system_notification": 1,
+  "subject": "Visitor {{ doc.visitor_name }} has arrived at {{ doc.gate }}"
+ },
+ {
+  "channel": "Email",
+  "condition": "doc.is_authorized == 0",
+  "document_type": "Gate Log Entry",
+  "doctype": "Notification",
+  "enabled": 1,
+  "event": "New",
+  "is_standard": 0,
+  "message": "<h3>Unauthorized Scan Detected</h3><p>An <b>unauthorized</b> scan was recorded at gate <b>{{ doc.gate }}</b> on <b>{{ doc.scan_time }}</b>.</p><p>Entry Pass: {{ doc.entry_pass or \"None\" }} &nbsp;|&nbsp; Scan Type: {{ doc.scan_type }} &nbsp;|&nbsp; Device: {{ doc.scanned_by_device or \"N/A\" }}</p><p>Remarks: {{ doc.remarks or \"Unauthorized scan - no matching valid Entry Pass\" }}</p><p>Please check the gate immediately.</p>",
+  "message_type": "HTML",
+  "module": "visitor_pass_tracker",
+  "name": "Unauthorized Scan Detected",
+  "recipients": [
+   {
+    "parent": "Unauthorized Scan Detected",
+    "parentfield": "recipients",
+    "parenttype": "Notification",
+    "receiver_by_document_field": "",
+    "receiver_by_role": "Security Officer"
+   }
+  ],
+  "send_system_notification": 1,
+  "subject": "Unauthorized scan at {{ doc.gate }} - {{ doc.scan_time }}"
  }
 ]
