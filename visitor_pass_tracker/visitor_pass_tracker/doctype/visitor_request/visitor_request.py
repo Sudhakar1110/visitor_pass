@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.model.workflow import apply_workflow
-from frappe.utils import get_datetime, now_datetime
+from frappe.utils import get_datetime, getdate, now_datetime
 
 from visitor_pass_tracker.utils import (
 	_normalize_phone,
@@ -52,7 +52,9 @@ class VisitorRequest(Document):
 				break
 
 	def validate_visit_date(self):
-		if self.visit_date and self.visit_date < frappe.utils.today():
+		# `visit_date` may be a date object (doc loaded from DB) or a string
+		# (API/web-form payload) - normalize both sides before comparing
+		if self.visit_date and getdate(self.visit_date) < getdate():
 			frappe.throw(_("Visit Date cannot be in the past"))
 
 	def validate_no_overlapping_visit(self):
@@ -156,7 +158,11 @@ class VisitorRequest(Document):
 			and self.expected_out_time <= self.expected_in_time
 		):
 			frappe.throw(_("Expected Out Time must be after Expected In Time"))
-		if self.visit_date and self.visit_end_date and self.visit_end_date < self.visit_date:
+		if (
+			self.visit_date
+			and self.visit_end_date
+			and getdate(self.visit_end_date) < getdate(self.visit_date)
+		):
 			frappe.throw(_("Visit End Date cannot be before Visit Date"))
 
 	# ------------------------------------------------------------------
