@@ -22,7 +22,7 @@ frappe.query_reports["Visitor Reconciliation"] = {
 			fieldname: "flag",
 			label: __("Show"),
 			fieldtype: "Select",
-			options: ["All Flags", "No-show", "Overstay", "Unauthorized", "On-site", "Completed"],
+			options: ["All Flags", "Scheduled", "No-show", "Overstay", "Unauthorized", "On-site", "Completed"],
 		},
 	],
 };

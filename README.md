@@ -68,7 +68,9 @@ the controller (`visitor_request.py`):
 | Pending Department Approval | Pending Security Approval | Role **Department Head** - action `Approve by Department Head` |
 | Pending Department Approval | Pending Security Approval | **auto** for `purpose == "Delivery"` (transition `Skip for Delivery`, conditioned on `doc.purpose == "Delivery"`) |
 | Pending Security Approval | Approved | Role **Security Officer** - action `Approve by Security Officer` |
+| Pending Host / Dept / Security Approval | Rejected | Role **Employee / Department Head / Security Officer** - action `Reject Request` (a Rejection Reason is mandatory; the automatic blacklist rejection is exempt) |
 | Approved | (Entry Pass) | **auto** - Entry Pass + QR code created from the visit window |
+| (any, after approval) | - | **Cancelling** a submitted request auto-revokes its Entry Pass so the gate stops accepting it |
 
 Blacklist matching runs on **every save** of the request (including before
 insert) by comparing the linked Visitor's `phone` / `id_proof_number` against
@@ -140,17 +142,32 @@ curl -X POST https://your-site.com/api/method/visitor_pass_tracker.visitor_pass_
   -H "Content-Type: application/json" \
   -d '{"entry_pass": "PASS-2026-00001", "remarks": "Visitor left without exiting"}'
 
-# Close a visit without a scan (lost pass / manual exit) - logs an Exit scan + marks pass Used
+# Close a visit without a scan (lost pass / manual exit) - logs an Exit scan + marks pass Used.
+# Refused unless the visitor has an Entry scan - pass \"force\": 1 to close anyway.
 curl -X POST https://your-site.com/api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.manual_exit \
   -H "Authorization: token <api_key>:<api_secret>" \
   -H "Content-Type: application/json" \
   -d '{"entry_pass": "PASS-2026-00001", "gate": "Main Gate", "remarks": "Manual exit at gate"}'
+
+# Extend a late-running visit (new valid_till; an Expired pass is reactivated)
+curl -X POST https://your-site.com/api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.extend_pass \
+  -H "Authorization: token <api_key>:<api_secret>" \
+  -H "Content-Type: application/json" \
+  -d '{"entry_pass": "PASS-2026-00001", "valid_till": "2026-08-06 20:30:00"}'
 ```
 
 Duplicate detection: `visitor_pass_tracker.utils.find_matching_visitors` (whitelisted)
 returns existing Visitors matching a phone / ID proof, and `Visitor Request`
 auto-links the existing Visitor master when a phone number is entered without
-selecting a Visitor.
+selecting a Visitor. A visitor can no longer hold two **overlapping** visit
+windows on the same day (duplicate-pass guard), and a repeated Entry scan on a
+pass whose holder is already inside is answered with `"status": "duplicate"`
+instead of creating another log.
+
+Revoking records an audit trail: `revoke_pass` sets `revoked_by` / `revoked_on`
+on the Entry Pass, `manual_exit` tags the log with the acting user, and every
+Gate Log Entry carries a `source` (Gate Device / Desk / Manual Exit / API) so
+manual desk entries are distinguishable from hardware scans.
 
 ---
 
@@ -185,6 +202,12 @@ selecting a Visitor.
 | **Department Head** | Approves the department step for requests in their department (incl. sub-departments) |
 | **Reception** | Creates Visitor + Visitor Request, views Entry Pass QR for printing/display |
 | **System Manager** | Full administrative access |
+
+> **Data visibility**: Entry Pass and Gate Log Entry are scoped for
+> **Employee** (only passes/logs of visits they host or created) and
+> **Department Head** (their department, incl. sub-departments) - including
+> the Daily Visitor Register and Visitor Reconciliation reports. Security
+> Officer / Reception / System Manager always see everything.
 
 ---
 

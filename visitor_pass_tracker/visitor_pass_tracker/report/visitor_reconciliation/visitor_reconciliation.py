@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 
 FLAG_INDICATORS = {
+	"Scheduled": "Blue",
 	"No-show": "Yellow",
 	"Overstay": "Orange",
 	"Unauthorized": "Red",
@@ -10,6 +11,7 @@ FLAG_INDICATORS = {
 }
 
 FLAG_COLORS = {
+	"Scheduled": "#2490ef",
 	"No-show": "#f0c419",
 	"Overstay": "#ffa00a",
 	"Unauthorized": "#e74c3c",
@@ -17,7 +19,7 @@ FLAG_COLORS = {
 	"Completed": "#2ecc71",
 }
 
-ALL_FLAGS = ("No-show", "Overstay", "Unauthorized", "On-site", "Completed")
+ALL_FLAGS = ("Scheduled", "No-show", "Overstay", "Unauthorized", "On-site", "Completed")
 
 
 def execute(filters=None):
@@ -91,7 +93,12 @@ def get_data(filters):
 		exit_scans = [s for s in scans if s.scan_type == "Exit"]
 
 		if not scans:
-			flag = "No-show"
+			# a pass with no scans is only a No-show once its validity has passed;
+			# upcoming visits are simply Scheduled
+			if entry.valid_till and frappe.utils.get_datetime(entry.valid_till) < now:
+				flag = "No-show"
+			else:
+				flag = "Scheduled"
 		elif entry_scans and exit_scans:
 			flag = "Completed"
 		elif entry_scans and entry.valid_till and frappe.utils.get_datetime(entry.valid_till) < now:
@@ -200,6 +207,7 @@ def get_report_summary(data):
 	flags = [row["flag"] for row in data]
 	return [
 		{"value": len(data), "label": _("Total Records"), "indicator": "blue"},
+		{"value": flags.count("Scheduled"), "label": _("Scheduled"), "indicator": "blue"},
 		{"value": flags.count("On-site"), "label": _("On-site"), "indicator": "green"},
 		{"value": flags.count("Overstay"), "label": _("Overstay"), "indicator": "orange"},
 		{"value": flags.count("No-show"), "label": _("No-show"), "indicator": "yellow"},

@@ -33,5 +33,10 @@
   "doctype": "Workflow Action Master",
   "name": "Approve by Security Officer",
   "workflow_action_name": "Approve by Security Officer"
+ },
+ {
+  "doctype": "Workflow Action Master",
+  "name": "Reject Request",
+  "workflow_action_name": "Reject Request"
  }
 ]

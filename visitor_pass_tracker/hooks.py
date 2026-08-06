@@ -59,6 +59,7 @@ fixtures = [
 					"Approve by Department Head",
 					"Skip for Delivery",
 					"Approve by Security Officer",
+					"Reject Request",
 				],
 			]
 		],
@@ -75,6 +76,8 @@ fixtures = [
 					"Visitor Request Approved",
 					"Visitor Request Rejected - Blacklist",
 					"Entry Pass Generated",
+					"Visitor Arrived",
+					"Unauthorized Scan Detected",
 				],
 			]
 		],
@@ -96,6 +99,9 @@ fixtures = [
 					"Visits by Department",
 					"Peak Visit Hours",
 					"Reconciliation Summary",
+					"Visits by Gate",
+					"Visits by Month",
+					"Visits per Host",
 				],
 			]
 		],
@@ -112,10 +118,14 @@ fixtures = [
 # ---------------------------------------------------------------------------
 has_permission = {
 	"Visitor Request": "visitor_pass_tracker.visitor_pass_tracker.doctype.visitor_request.visitor_request.has_permission",
+	"Entry Pass": "visitor_pass_tracker.visitor_pass_tracker.doctype.entry_pass.entry_pass.has_permission",
+	"Gate Log Entry": "visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.has_permission",
 }
 
 permission_query_conditions = {
 	"Visitor Request": "visitor_pass_tracker.visitor_pass_tracker.doctype.visitor_request.visitor_request.get_permission_query_conditions",
+	"Entry Pass": "visitor_pass_tracker.visitor_pass_tracker.doctype.entry_pass.entry_pass.get_permission_query_conditions",
+	"Gate Log Entry": "visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.get_permission_query_conditions",
 }
 
 # ---------------------------------------------------------------------------

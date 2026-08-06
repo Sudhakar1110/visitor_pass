@@ -32,6 +32,9 @@ def expire_passes():
 		"Entry Pass",
 		filters={"status": "Active", "valid_till": ("<", now)},
 		pluck="name",
+		# scheduler runs as Administrator, but stay robust regardless of the
+		# session user - the entry-pass permission scoping must not block it
+		ignore_permissions=True,
 	)
 	for name in expired:
 		frappe.db.set_value("Entry Pass", name, "status", "Expired")
@@ -55,6 +58,7 @@ def alert_hosts_of_upcoming_expiry():
 			"expiry_alert_sent": 0,
 		},
 		fields=["name", "visitor", "visitor_request", "valid_till", "host_user"],
+		ignore_permissions=True,
 	)
 
 	for entry in passes:
@@ -109,14 +113,18 @@ def alert_security_of_overstays():
 	Deduplicated via the hidden `overstay_alert_sent` flag.
 	"""
 	now = now_datetime()
+	# NOTE: run_pass_expiry_checks() calls expire_passes() first, which marks
+	# every pass past its valid_till as "Expired" - so overstay detection must
+	# look at BOTH Active and Expired passes, otherwise it would never fire.
 	passes = frappe.get_all(
 		"Entry Pass",
 		filters={
-			"status": "Active",
+			"status": ["in", ["Active", "Expired"]],
 			"valid_till": ("<", now),
 			"overstay_alert_sent": 0,
 		},
 		fields=["name", "visitor", "visitor_name", "location_gate", "valid_till"],
+		ignore_permissions=True,
 	)
 
 	overstayers = []
@@ -435,3 +443,90 @@ def get_peak_visit_hours(**kwargs):
 		"labels": labels,
 		"datasets": [{"name": _("Gate Scans"), "values": values}],
 	}
+
+
+# ---------------------------------------------------------------------------
+# Data-visibility scoping - shared by the permission hooks (Entry Pass / Gate
+# Log Entry) and the script reports. Non-security users are restricted to
+# their own visits (Employee/host) or their department's visits (Department
+# Head, including sub-departments).
+# ---------------------------------------------------------------------------
+
+
+def get_user_scope(user=None):
+	"""Return a dict describing the visitor-data visibility of a user.
+
+	- full_access: True for Administrator / System Manager / Security Officer / Reception
+	- employee: the user's Employee record (or None)
+	- departments: departments headed by the user, including sub-departments
+	"""
+	user = user or frappe.session.user
+	scope = {"full_access": False, "employee": None, "departments": []}
+	if user == "Administrator":
+		scope["full_access"] = True
+		return scope
+	roles = frappe.get_roles(user)
+	if any(role in roles for role in ("System Manager", "Security Officer", "Reception")):
+		scope["full_access"] = True
+		return scope
+
+	scope["employee"] = frappe.db.get_value("Employee", {"user_id": user}, "name")
+	if "Department Head" in roles and scope["employee"]:
+		headed = frappe.get_all(
+			"Department",
+			filters={"head_of_department": scope["employee"]},
+			fields=["name", "lft", "rgt"],
+		)
+		if headed:
+			tree = frappe.get_all("Department", fields=["name", "lft", "rgt"])
+			scope["departments"] = [
+				d.name for d in tree if any(d.lft >= h.lft and d.rgt <= h.rgt for h in headed)
+			]
+	return scope
+
+
+def get_pass_scope_condition(alias="ep", user=None):
+	"""SQL condition restricting an Entry-Pass-alias query to what the user may
+	see. Returns (None, {}) for full access; otherwise a parenthesised SQL
+	snippet plus its parameters (for use with frappe.db.sql).
+
+	A user sees passes they host (host / host_user), passes they created
+	(request owner) and - for Department Heads - passes in their departments.
+	"""
+	scope = get_user_scope(user)
+	if scope["full_access"]:
+		return None, {}
+
+	user = user or frappe.session.user
+	params = {}
+	alternatives = []
+
+	if scope["employee"]:
+		alternatives.append(
+			f"(`{alias}`.`host` = %(vpt_employee)s OR `{alias}`.`host_user` = %(vpt_user)s)"
+		)
+		params["vpt_employee"] = scope["employee"]
+		params["vpt_user"] = user
+
+	# the requester may not be the host (e.g. Reception raised it) - the owner
+	# of the linked request may see the pass too
+	alternatives.append(
+		f"`{alias}`.`visitor_request` IN ("
+		f"SELECT `name` FROM `tabVisitor Request` WHERE `owner` = %(vpt_owner)s)"
+	)
+	params["vpt_owner"] = user
+
+	if "Department Head" in frappe.get_roles(user):
+		if scope["departments"]:
+			alternatives.append(
+				f"`{alias}`.`visitor_request` IN ("
+				f"SELECT `name` FROM `tabVisitor Request` "
+				f"WHERE `department` IN %(vpt_departments)s)"
+			)
+			params["vpt_departments"] = scope["departments"]
+		# no departments headed -> the department alternative simply does not
+		# apply; other alternatives may still match
+
+	if not alternatives:
+		return "1=0", {}
+	return "(" + " OR ".join(alternatives) + ")", params

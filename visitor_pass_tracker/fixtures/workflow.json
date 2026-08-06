@@ -177,6 +177,39 @@
     "parentfield": "transitions",
     "parenttype": "Workflow",
     "state": "Pending Security Approval"
+   },
+   {
+    "action": "Reject Request",
+    "allow_self_approval": 1,
+    "allowed": "Employee",
+    "condition": null,
+    "next_state": "Rejected",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Pending Host Approval"
+   },
+   {
+    "action": "Reject Request",
+    "allow_self_approval": 1,
+    "allowed": "Department Head",
+    "condition": null,
+    "next_state": "Rejected",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Pending Department Approval"
+   },
+   {
+    "action": "Reject Request",
+    "allow_self_approval": 1,
+    "allowed": "Security Officer",
+    "condition": null,
+    "next_state": "Rejected",
+    "parent": "Visitor Request Workflow",
+    "parentfield": "transitions",
+    "parenttype": "Workflow",
+    "state": "Pending Security Approval"
    }
   ],
   "workflow_data": null,

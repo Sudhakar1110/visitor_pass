@@ -94,6 +94,15 @@ def get_data(filters):
 	elif authorized == "Unauthorized":
 		conditions.append("gle.is_authorized = 0")
 
+	# Data-visibility: non-security users (Employee / Department Head) only see
+	# scans of the visits they host / created / head - never the whole building.
+	from visitor_pass_tracker.utils import get_pass_scope_condition
+
+	scope_cond, scope_params = get_pass_scope_condition(alias="ep")
+	if scope_cond:
+		conditions.append(scope_cond)
+		params.update(scope_params)
+
 	rows = frappe.db.sql(
 		f"""
 		SELECT

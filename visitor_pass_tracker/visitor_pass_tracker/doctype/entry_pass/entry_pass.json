@@ -20,7 +20,9 @@
   "column_break_12",
   "status",
   "expiry_alert_sent",
-  "overstay_alert_sent"
+  "overstay_alert_sent",
+  "revoked_by",
+  "revoked_on"
  ],
  "fields": [
   {
@@ -140,6 +142,19 @@
    "fieldtype": "Check",
    "hidden": 1,
    "label": "Overstay Alert Sent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revoked_by",
+   "fieldtype": "Link",
+   "label": "Revoked By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "revoked_on",
+   "fieldtype": "Datetime",
+   "label": "Revoked On",
    "read_only": 1
   }
  ],

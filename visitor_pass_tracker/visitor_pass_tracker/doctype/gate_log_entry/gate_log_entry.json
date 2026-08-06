@@ -17,7 +17,8 @@
   "scan_time",
   "scanned_by_device",
   "is_authorized",
-  "remarks"
+  "remarks",
+  "source"
  ],
  "fields": [
   {
@@ -108,6 +109,16 @@
    "fieldname": "remarks",
    "fieldtype": "Data",
    "label": "Remarks",
+   "read_only": 1
+  },
+  {
+   "default": "Desk",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Source",
+   "options": "Gate Device\nDesk\nManual Exit\nAPI",
    "read_only": 1
   }
  ],

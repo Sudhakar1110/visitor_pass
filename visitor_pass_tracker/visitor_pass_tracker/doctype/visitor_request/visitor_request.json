@@ -26,7 +26,8 @@
   "is_escort_required",
   "blacklist_status",
   "workflow_state",
-  "notes"
+  "notes",
+  "rejection_reason"
  ],
  "fields": [
   {
@@ -62,7 +63,8 @@
    "fetch_from": "visitor.phone",
    "fieldname": "visitor_phone",
    "fieldtype": "Data",
-   "label": "Visitor Phone"
+   "label": "Visitor Phone",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_4",
@@ -189,6 +191,13 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "rejection_reason",
+   "fieldtype": "Small Text",
+   "label": "Rejection Reason",
+   "description": "Required when a request is rejected by an approver"
   }
  ],
  "icon": "octicon octicon-checklist",

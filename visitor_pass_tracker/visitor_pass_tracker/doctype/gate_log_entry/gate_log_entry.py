@@ -8,6 +8,8 @@ class GateLogEntry(Document):
 	def validate(self):
 		self.validate_scan()
 		self.set_linked_fields()
+		if not self.source:
+			self.source = "Desk"
 
 	def validate_scan(self):
 		if not self.scan_time:
@@ -84,6 +86,31 @@ def submit_scan(
 	pass_name = _resolve_entry_pass(entry_pass)
 	scan_datetime = get_datetime(scan_time) if scan_time else now_datetime()
 
+	# Duplicate-scan guard: a visitor already inside (Entry scan, no Exit scan)
+	# must not generate endless Entry logs - answer "duplicate" instead.
+	# Only applies while the pass is still valid: a Revoked / Expired pass is
+	# reported as "unauthorized" so the gate keeps denying entry.
+	if scan_type == "Entry" and pass_name:
+		pass_status = frappe.db.get_value("Entry Pass", pass_name, "status")
+		has_entry = frappe.db.exists(
+			"Gate Log Entry",
+			{"entry_pass": pass_name, "scan_type": "Entry", "docstatus": ("<", 2)},
+		)
+		if has_entry and pass_status == "Active":
+			has_exit = frappe.db.exists(
+				"Gate Log Entry",
+				{"entry_pass": pass_name, "scan_type": "Exit", "docstatus": ("<", 2)},
+			)
+			if not has_exit:
+				return {
+					"status": "duplicate",
+					"entry_pass": pass_name,
+					"gate": gate_name,
+					"scan_type": scan_type,
+					"scan_time": str(scan_datetime),
+					"message": _("Visitor already inside - duplicate Entry scan ignored"),
+				}
+
 	log = frappe.get_doc(
 		{
 			"doctype": "Gate Log Entry",
@@ -92,6 +119,7 @@ def submit_scan(
 			"scan_type": scan_type,
 			"scan_time": scan_datetime,
 			"scanned_by_device": scanned_by_device,
+			"source": "Gate Device",
 		}
 	)
 	log.insert(ignore_permissions=True)
@@ -162,14 +190,22 @@ def revoke_pass(entry_pass=None, remarks=None, token=None):
 
 	pass_doc = frappe.get_doc("Entry Pass", pass_name)
 	pass_doc.status = "Revoked"
+	pass_doc.revoked_by = frappe.session.user
+	pass_doc.revoked_on = now_datetime()
 	pass_doc.save(ignore_permissions=True)
 	frappe.db.commit()
 
-	return {"status": "revoked", "entry_pass": pass_name, "remarks": remarks}
+	return {
+		"status": "revoked",
+		"entry_pass": pass_name,
+		"remarks": remarks,
+		"revoked_by": frappe.session.user,
+		"revoked_on": str(pass_doc.revoked_on),
+	}
 
 
 @frappe.whitelist()
-def manual_exit(entry_pass=None, gate=None, remarks=None, token=None):
+def manual_exit(entry_pass=None, gate=None, remarks=None, token=None, force=0):
 	"""Close a visit without a gate scan (lost pass / manual exit).
 
 	Logs an Exit Gate Log Entry (remarks recorded) and marks the pass Used,
@@ -179,23 +215,42 @@ def manual_exit(entry_pass=None, gate=None, remarks=None, token=None):
 	    /api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.manual_exit
 
 	`gate` may be the Gate name or the Gate's device_id; defaults to the
-	pass's own location_gate.
+	pass's own location_gate. Pass `force=1` to close a visit that has no
+	Entry scan (visitor never entered) - by default this is rejected.
 	"""
 	_validate_api_token(token)
 	pass_name = _resolve_entry_pass(entry_pass)
 	if not pass_name:
 		frappe.throw(_("Entry Pass not found: {0}").format(entry_pass))
 
+	force = int(force or 0)
 	pass_doc = frappe.get_doc("Entry Pass", pass_name)
 	if pass_doc.status == "Revoked":
 		frappe.throw(_("Entry Pass {0} is revoked").format(pass_name))
 	if pass_doc.status == "Used":
 		frappe.throw(_("Entry Pass {0} is already used - visit already closed").format(pass_name))
 
+	# Guard: don't close a visit that never started (no Entry scan) unless
+	# Security explicitly forces it.
+	if not force:
+		has_entry = frappe.db.exists(
+			"Gate Log Entry",
+			{"entry_pass": pass_name, "scan_type": "Entry", "docstatus": ("<", 2)},
+		)
+		if not has_entry:
+			frappe.throw(
+				_("No Entry scan found for {0} - this visitor never entered the premises. "
+				  "Pass force=1 to close the visit anyway.").format(pass_name)
+			)
+
 	gate_name = _resolve_gate(gate) if gate else None
 	gate_name = gate_name or pass_doc.location_gate
 	if not gate_name:
 		frappe.throw(_("Gate is required to close the visit (pass has no Location / Gate)"))
+
+	actor = frappe.session.user
+	final_remarks = remarks or _("Manual exit - visit closed by Security")
+	final_remarks = "{0} [by {1}]".format(final_remarks, actor)
 
 	log = frappe.get_doc(
 		{
@@ -204,7 +259,8 @@ def manual_exit(entry_pass=None, gate=None, remarks=None, token=None):
 			"gate": gate_name,
 			"scan_type": "Exit",
 			"scan_time": now_datetime(),
-			"remarks": remarks or _("Manual exit - visit closed by Security"),
+			"remarks": final_remarks,
+			"source": "Manual Exit",
 		}
 	)
 	log.insert(ignore_permissions=True)
@@ -216,4 +272,116 @@ def manual_exit(entry_pass=None, gate=None, remarks=None, token=None):
 		"entry_pass": pass_name,
 		"gate": gate_name,
 		"scan_time": str(log.scan_time),
+		"by": actor,
 	}
+
+
+@frappe.whitelist()
+def extend_pass(entry_pass=None, valid_till=None, remarks=None, token=None):
+	"""Extend the validity of an Entry Pass (late-running visit).
+
+	Endpoint (POST, requires a logged-in service user / API key):
+	    /api/method/visitor_pass_tracker.visitor_pass_tracker.doctype.gate_log_entry.gate_log_entry.extend_pass
+
+	Pass the new `valid_till` datetime. An already-expired pass is reactivated
+	if the new validity is in the future. Same optional hardening as
+	submit_scan - set `visitor_pass_api_token` in site_config.json and pass it
+	as the `token` parameter.
+	"""
+	_validate_api_token(token)
+	pass_name = _resolve_entry_pass(entry_pass)
+	if not pass_name:
+		frappe.throw(_("Entry Pass not found: {0}").format(entry_pass))
+
+	pass_doc = frappe.get_doc("Entry Pass", pass_name)
+	if pass_doc.status == "Revoked":
+		frappe.throw(_("Entry Pass {0} is revoked and cannot be extended").format(pass_name))
+	if pass_doc.status == "Used":
+		frappe.throw(_("Entry Pass {0} is already used - visit already closed").format(pass_name))
+
+	if not valid_till:
+		frappe.throw(_("valid_till is required to extend the pass"))
+	new_till = get_datetime(valid_till)
+	if new_till <= pass_doc.valid_from:
+		frappe.throw(_("New Valid Till must be after Valid From"))
+
+	was_expired = pass_doc.status == "Expired"
+	pass_doc.valid_till = new_till
+	if was_expired and new_till > now_datetime():
+		pass_doc.status = "Active"
+	pass_doc.save(ignore_permissions=True)
+	frappe.db.commit()
+
+	return {
+		"status": "extended",
+		"entry_pass": pass_name,
+		"valid_till": str(pass_doc.valid_till),
+		"remarks": remarks,
+	}
+
+
+# ---------------------------------------------------------------------------
+# Permissions - scoped via the has_permission / permission_query_conditions
+# hooks registered in hooks.py. Employees see the logs of their own visits
+# only; Department Heads see their department's visits.
+# ---------------------------------------------------------------------------
+
+
+def has_permission(doc, ptype, user=None, debug=False):
+	from visitor_pass_tracker.utils import get_user_scope
+
+	user = user or frappe.session.user
+	scope = get_user_scope(user)
+	if scope["full_access"]:
+		return True
+	if doc.get("host_user") == user:
+		return True
+	if doc.get("visitor_request") and frappe.db.get_value(
+		"Visitor Request", doc.visitor_request, "owner"
+	) == user:
+		return True
+	if doc.get("entry_pass") and frappe.db.exists("Entry Pass", doc.entry_pass):
+		from visitor_pass_tracker.visitor_pass_tracker.doctype.entry_pass.entry_pass import (
+			has_permission as entry_pass_has_permission,
+		)
+
+		return entry_pass_has_permission(frappe.get_doc("Entry Pass", doc.entry_pass), ptype, user=user)
+	return False
+
+
+def get_permission_query_conditions(user, doctype=None):
+	from visitor_pass_tracker.utils import get_user_scope
+
+	scope = get_user_scope(user)
+	if scope["full_access"]:
+		return ""
+	user = user or frappe.session.user
+	alternatives = []
+
+	if scope["employee"]:
+		alternatives.append(
+			"`tabGate Log Entry`.`host_user` = {0}".format(frappe.db.escape(user))
+		)
+		alternatives.append(
+			"`tabGate Log Entry`.`entry_pass` IN (SELECT `name` FROM `tabEntry Pass` "
+			"WHERE `host` = {0} OR `host_user` = {1})".format(
+				frappe.db.escape(scope["employee"]), frappe.db.escape(user)
+			)
+		)
+
+	alternatives.append(
+		"`tabGate Log Entry`.`visitor_request` IN (SELECT `name` FROM `tabVisitor Request` "
+		"WHERE `owner` = {0})".format(frappe.db.escape(user))
+	)
+
+	if "Department Head" in frappe.get_roles(user) and scope["departments"]:
+		alternatives.append(
+			"`tabGate Log Entry`.`visitor_request` IN (SELECT `name` FROM `tabVisitor Request` "
+			"WHERE `department` IN ({0}))".format(
+				", ".join(frappe.db.escape(d) for d in scope["departments"])
+			)
+		)
+
+	if not alternatives:
+		return "1=0"
+	return "(" + " OR ".join(alternatives) + ")"

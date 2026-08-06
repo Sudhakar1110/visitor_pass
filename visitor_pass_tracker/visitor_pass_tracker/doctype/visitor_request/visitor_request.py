@@ -15,6 +15,10 @@ class VisitorRequest(Document):
 		self.match_existing_visitor()
 		self.validate_blacklist()
 		self.validate_visit_window()
+		self.validate_no_overlapping_visit()
+
+	def before_submit(self):
+		self.validate_visit_date()
 
 	def match_existing_visitor(self):
 		"""Duplicate detection - when no Visitor is linked but a phone number is
@@ -25,11 +29,88 @@ class VisitorRequest(Document):
 		phone = _normalize_phone(self.visitor_phone)
 		if not phone:
 			return
+		# fast path - exact phone match first (stored value equals the raw query)
+		exact = frappe.get_all("Visitor", filters={"phone": phone}, fields=["name"], limit=1)
+		if exact:
+			self.visitor = exact[0].name
+			return
 		visitors = frappe.get_all("Visitor", fields=["name", "phone"], order_by="modified desc")
 		for v in visitors:
 			if _normalize_phone(v.phone) == phone:
 				self.visitor = v.name
 				break
+
+	def validate_visit_date(self):
+		if self.visit_date and self.visit_date < frappe.utils.today():
+			frappe.throw(_("Visit Date cannot be in the past"))
+
+	def validate_no_overlapping_visit(self):
+		"""A visitor must not hold two Active visits with overlapping windows on
+		the same day - prevents duplicate passes for the same person/gate."""
+		if not self.visitor or not self.visit_date:
+			return
+		if not (self.expected_in_time and self.expected_out_time):
+			return
+		conflict = self._find_overlapping_visit()
+		if conflict:
+			frappe.throw(
+				_("Visitor {0} already has {1} with an overlapping visit window on {2}. "
+				  "Choose a non-overlapping time or use a single request.").format(
+					self.visitor_name or self.visitor, conflict, self.visit_date
+				)
+			)
+
+	def _find_overlapping_visit(self):
+		# 1) overlapping submitted requests (excluding self)
+		req_filters = {
+			"visitor": self.visitor,
+			"visit_date": self.visit_date,
+			"docstatus": 1,
+			"workflow_state": ["not in", ["Rejected"]],
+		}
+		if self.name:
+			req_filters["name"] = ["!=", self.name]
+		# ignore_permissions: this is a data-integrity guard and must consider
+		# requests raised by other hosts, not only the current user's own
+		for other in frappe.get_all(
+			"Visitor Request",
+			filters=req_filters,
+			fields=["name", "expected_in_time", "expected_out_time"],
+			ignore_permissions=True,
+		):
+			if self._time_windows_overlap(
+				other.get("expected_in_time"), other.get("expected_out_time")
+			):
+				return "Visitor Request {0}".format(other.name)
+
+		# 2) existing non-revoked Entry Passes for the same visitor/day
+		#    (excluding this request's own pass)
+		pass_filters = {
+			"visitor": self.visitor,
+			"status": ["in", ["Active", "Expired"]],
+			"valid_from": [
+				"between",
+				[f"{self.visit_date} 00:00:00", f"{self.visit_date} 23:59:59"],
+			],
+		}
+		if self.name:
+			pass_filters["visitor_request"] = ["!=", self.name]
+		for ep in frappe.get_all(
+			"Entry Pass",
+			filters=pass_filters,
+			fields=["name", "valid_from", "valid_till"],
+			ignore_permissions=True,
+		):
+			o_in = str(ep.valid_from)[11:19] if ep.valid_from else None
+			o_out = str(ep.valid_till)[11:19] if ep.valid_till else None
+			if self._time_windows_overlap(o_in, o_out):
+				return "Entry Pass {0}".format(ep.name)
+		return None
+
+	def _time_windows_overlap(self, o_in, o_out):
+		if not o_in or not o_out:
+			return False
+		return self.expected_in_time < o_out and o_in < self.expected_out_time
 
 	# ------------------------------------------------------------------
 	# Blacklist auto-check (Server Script equivalent)
@@ -74,14 +155,37 @@ class VisitorRequest(Document):
 		"""Runs on every save of the submitted request (including the saves
 		performed by workflow actions).
 
+		- Manual rejections require a rejection reason (the automatic
+		  blacklist rejection is exempt - the blacklist record is the reason).
 		- Delivery visits skip the Department Head step automatically.
 		- On the final "Approved" state, the Entry Pass + QR is auto-created.
 		"""
+		if (
+			self.workflow_state == "Rejected"
+			and self.blacklist_status != "Flagged"
+			and not self.rejection_reason
+		):
+			frappe.throw(_("Please provide a Rejection Reason before rejecting the request"))
+
 		if self.workflow_state == "Pending Department Approval" and self.purpose == "Delivery":
 			apply_workflow(self, "Skip for Delivery")
 
 		if self.workflow_state == "Approved":
 			create_entry_pass_for_request(self)
+
+	def on_cancel(self):
+		self.revoke_entry_pass_on_cancel()
+
+	def revoke_entry_pass_on_cancel(self):
+		"""Cancelling a submitted request must not leave an Active (scannable)
+		Entry Pass behind - revoke it so the gate stops accepting it."""
+		pass_name = frappe.db.get_value("Entry Pass", {"visitor_request": self.name}, "name")
+		if not pass_name:
+			return
+		pass_doc = frappe.get_doc("Entry Pass", pass_name)
+		if pass_doc.status in ("Active", "Expired"):
+			pass_doc.status = "Revoked"
+			pass_doc.save(ignore_permissions=True)
 
 
 # ------------------------------------------------------------------
