@@ -27,7 +27,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Entry Pass",
-   "options": "Entry Pass"
+   "options": "Entry Pass",
+   "search_index": 1
   },
   {
    "fieldname": "visitor_request",
@@ -89,7 +90,8 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Scan Time",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "scanned_by_device",

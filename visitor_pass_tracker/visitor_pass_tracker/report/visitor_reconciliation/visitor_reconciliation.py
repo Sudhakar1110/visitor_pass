@@ -22,6 +22,17 @@ FLAG_COLORS = {
 ALL_FLAGS = ("Scheduled", "No-show", "Overstay", "Unauthorized", "On-site", "Completed")
 
 
+def _reconciliation_limit():
+	"""Cap how many records the report scans (dashboard cards / large sites).
+	Configurable via `visitor_pass_reconciliation_limit` in site_config.json;
+	defaults to 1000 (most recent first). Use date filters for full runs."""
+	limit = frappe.conf.get("visitor_pass_reconciliation_limit") or 1000
+	try:
+		return max(int(limit), 1)
+	except (TypeError, ValueError):
+		return 1000
+
+
 def execute(filters=None):
 	"""Script Report entry point. Returns columns, data, message, chart,
 	report summary and skip-total-row (Frappe 15 supports 6 return values)."""
@@ -138,6 +149,7 @@ def get_data(filters):
 		filters=log_filters,
 		fields=["entry_pass", "visitor", "gate", "scan_type", "scan_time"],
 		order_by="scan_time desc",
+		limit_page_length=_reconciliation_limit(),
 	)
 	for log in unauthorized_logs:
 		data.append(
@@ -182,6 +194,7 @@ def _get_passes(from_date, to_date, gate):
 			"valid_till",
 		],
 		order_by="valid_from desc",
+		limit_page_length=_reconciliation_limit(),
 	)
 
 

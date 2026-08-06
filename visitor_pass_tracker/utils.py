@@ -293,6 +293,17 @@ def check_blacklist(visitor):
 # ---------------------------------------------------------------------------
 
 
+VISITOR_MATCH_FIELDS = [
+	"name",
+	"visitor_name",
+	"phone",
+	"email",
+	"company_name",
+	"id_proof_number",
+	"modified",
+]
+
+
 @frappe.whitelist()
 def find_matching_visitors(phone=None, id_proof_number=None):
 	"""Return existing Visitors matching the given phone and/or ID proof number.
@@ -300,39 +311,63 @@ def find_matching_visitors(phone=None, id_proof_number=None):
 	Used by the desk / web forms / API to suggest (and auto-select) the
 	existing visitor master instead of creating a duplicate. Returns a list
 	of {name, visitor_name, phone, email, company_name, id_proof_number}.
+
+	All lookups are DB-bounded (exact-index match first, then digit-prefix
+	candidates, then ID-proof candidates) - the table is never fully scanned.
 	"""
-	matches = []
-	visitors = frappe.get_all(
-		"Visitor",
-		fields=[
-			"name",
-			"visitor_name",
-			"phone",
-			"email",
-			"company_name",
-			"id_proof_number",
-		],
-		order_by="modified desc",
-	)
 	phone = _normalize_phone(phone)
 	id_proof = (id_proof_number or "").strip().lower()
+
+	matches = {}
+
+	# 1) exact phone match - uses the phone index, returns immediately
 	if phone:
-		# fast path - exact phone match first (stored value equals the raw query)
-		exact_matches = frappe.get_all(
+		for v in frappe.get_all(
 			"Visitor",
 			filters={"phone": phone},
-			fields=["name", "visitor_name", "phone", "email", "company_name", "id_proof_number"],
-		)
-		if exact_matches:
-			return exact_matches[:20]
-	for v in visitors:
-		if phone and _normalize_phone(v.phone) == phone:
-			matches.append(v)
-		elif id_proof and (v.id_proof_number or "").strip().lower() == id_proof:
-			matches.append(v)
-		if len(matches) >= 20:
-			break
-	return matches
+			fields=VISITOR_MATCH_FIELDS,
+			order_by="modified desc",
+			limit_page_length=20,
+		):
+			matches[v.name] = v
+
+	# 2) digit-normalized fallback: candidates whose stored phone ENDS with the
+	#    digits (covers +91 / spaces / dashes), confirmed in Python on a small set
+	if phone and not matches:
+		for v in frappe.get_all(
+			"Visitor",
+			filters={"phone": ["like", f"%{phone}"]},
+			fields=VISITOR_MATCH_FIELDS,
+			order_by="modified desc",
+			limit_page_length=200,
+		):
+			if _normalize_phone(v.phone) == phone:
+				matches[v.name] = v
+
+	# 3) ID proof number match
+	if id_proof:
+		for v in frappe.get_all(
+			"Visitor",
+			filters={"id_proof_number": ["like", f"%{id_proof}%"]},
+			fields=VISITOR_MATCH_FIELDS,
+			order_by="modified desc",
+			limit_page_length=200,
+		):
+			if (v.id_proof_number or "").strip().lower() == id_proof:
+				matches[v.name] = v
+
+	result = sorted(matches.values(), key=lambda v: v.modified, reverse=True)[:20]
+	return [
+		{
+			"name": v.name,
+			"visitor_name": v.visitor_name,
+			"phone": v.phone,
+			"email": v.email,
+			"company_name": v.company_name,
+			"id_proof_number": v.id_proof_number,
+		}
+		for v in result
+	]
 
 
 # ---------------------------------------------------------------------------

@@ -248,6 +248,12 @@ manual desk entries are distinguishable from hardware scans.
 
 ## Development notes
 
+- **DB indexes**: `Entry Pass.valid_till` and `Gate Log Entry.scan_time` /
+  `entry_pass` carry `search_index` (created by `bench migrate`) so the
+  15-minute scheduler, expiry checks and reports stay fast as data grows.
+- **Reconciliation is bounded**: the report scans at most
+  `visitor_pass_reconciliation_limit` records (default 1000, most recent
+  first) - raise it in `site_config.json` or use date filters for full runs.
 - `frappe.utils.fixtures.sync_fixtures` imports everything in
   `visitor_pass_tracker/fixtures/` (order defined in
   `hooks.py`). Re-export after UI changes: `bench --site <site> export-fixtures`.
