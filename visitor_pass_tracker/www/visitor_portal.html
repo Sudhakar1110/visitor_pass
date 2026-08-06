@@ -1,0 +1,570 @@
+{% extends "templates/web.html" %}
+
+{% block style %}
+<style>
+	.vp-hero {
+		background: linear-gradient(135deg, #1a2a4a 0%, #2490ef 100%);
+		border-radius: 14px;
+		color: #fff;
+		padding: 2.2rem 2rem;
+		margin-bottom: 1.8rem;
+		box-shadow: 0 8px 24px rgba(36, 144, 239, 0.25);
+	}
+	.vp-hero .vp-kicker {
+		text-transform: uppercase;
+		letter-spacing: 2px;
+		font-size: 0.75rem;
+		opacity: 0.85;
+	}
+	.vp-hero h1 { font-size: 1.9rem; font-weight: 700; margin: 0.2rem 0 0.4rem; }
+	.vp-hero p { margin: 0; opacity: 0.92; max-width: 640px; }
+
+	.vp-tabs .nav-link {
+		border-radius: 10px 10px 0 0;
+		font-weight: 600;
+		color: #5d6b85;
+	}
+	.vp-tabs .nav-link.active {
+		background: #fff;
+		color: #2490ef;
+		box-shadow: 0 -3px 10px rgba(36, 144, 239, 0.12);
+	}
+
+	.vp-card {
+		border: 1px solid #e8edf4;
+		border-radius: 12px;
+		box-shadow: 0 2px 10px rgba(26, 42, 74, 0.06);
+		padding: 1.6rem;
+		background: #fff;
+	}
+
+	.vp-status {
+		display: inline-block;
+		padding: 0.22rem 0.7rem;
+		border-radius: 999px;
+		font-size: 0.72rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.4px;
+	}
+	.vp-status.approved, .vp-status.used, .vp-status.completed { background: #dff5e4; color: #1c7c3c; }
+	.vp-status.rejected, .vp-status.revoked { background: #fbe4e4; color: #c0392b; }
+	.vp-status.pending { background: #fff3d6; color: #a06a00; }
+	.vp-status.expired { background: #e8edf4; color: #5d6b85; }
+	.vp-status.draft, .vp-status.other { background: #ececf3; color: #6b6b83; }
+
+	.vp-timeline { position: relative; padding-left: 1.4rem; }
+	.vp-timeline::before {
+		content: "";
+		position: absolute;
+		left: 6px; top: 8px; bottom: 8px;
+		width: 2px; background: #e3e9f2;
+	}
+	.vp-timeline .vp-item { position: relative; padding: 0.7rem 0 0.7rem 0.6rem; }
+	.vp-timeline .vp-item::before {
+		content: "";
+		position: absolute; left: -1.34rem; top: 1.15rem;
+		width: 12px; height: 12px; border-radius: 50%;
+		background: #2490ef; border: 2px solid #fff;
+		box-shadow: 0 0 0 2px #2490ef;
+	}
+	.vp-timeline .vp-item.alt::before { background: #8b5cf6; box-shadow: 0 0 0 2px #8b5cf6; }
+
+	.vp-pass { border-left: 4px solid #2490ef; }
+	.vp-pass.revoked, .vp-pass.expired { border-left-color: #c0392b; }
+	.vp-pass.used { border-left-color: #1c7c3c; }
+
+	.vp-toast {
+		position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+		z-index: 1080; min-width: 320px; max-width: 92vw;
+		border-radius: 10px; padding: 0.8rem 1.1rem; font-weight: 600;
+		box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: none;
+		text-align: center;
+	}
+	.vp-toast.success { background: #1c7c3c; color: #fff; }
+	.vp-toast.error { background: #c0392b; color: #fff; }
+	.vp-toast.info { background: #1a2a4a; color: #fff; }
+
+	.vp-qr-box { background: #fff; border: 2px dashed #c9d6e8; border-radius: 12px; padding: 1.2rem; }
+	.vp-qr-box img { width: 180px; height: 180px; image-rendering: pixelated; }
+	.vp-hint { font-size: 0.82rem; color: #6b7a93; }
+
+	#vp-print-area { display: none; }
+	@media print {
+		body * { visibility: hidden; }
+		#vp-print-area, #vp-print-area * { visibility: visible; }
+		#vp-print-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
+	}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="container py-5">
+
+	<div class="vp-hero">
+		<div class="vp-kicker">Visitor Pass Tracker</div>
+		<h1>Visitor Pass Portal</h1>
+		<p>Pre-register for your visit, track the status of your requests, and download
+		your entry pass QR code — all without logging in. Your host raises the visit
+		request on your behalf once you're registered.</p>
+	</div>
+
+	<ul class="nav nav-pills vp-tabs mb-2" id="vpTabs" role="tablist">
+		<li class="nav-item">
+			<a class="nav-link active" id="tab-register-link" data-vp-tab="register" href="#">
+				Pre-Register
+			</a>
+		</li>
+		<li class="nav-item">
+			<a class="nav-link" id="tab-track-link" data-vp-tab="track" href="#">
+				Track My Visit
+			</a>
+		</li>
+		<li class="nav-item">
+			<a class="nav-link" id="tab-pass-link" data-vp-tab="pass" href="#">
+				My Pass (QR)
+			</a>
+		</li>
+	</ul>
+
+	<div class="vp-card" id="vp-content">
+		<!-- ======================= TAB 1 : PRE-REGISTER ======================= -->
+		<div id="vp-register">
+			<h5 class="font-weight-bold mb-1">Pre-Register as a Visitor</h5>
+			<p class="vp-hint mb-4">Register once — your details are reused for every future visit.</p>
+
+			<form id="vp-register-form">
+				<div class="row">
+					<div class="col-md-6">
+						<div class="form-group">
+							<label for="reg-name">Full Name *</label>
+							<input type="text" class="form-control" id="reg-name" required
+								placeholder="e.g. Priya Sharma">
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<label for="reg-phone">Phone *</label>
+							<input type="tel" class="form-control" id="reg-phone" required
+								placeholder="e.g. 98765 43210">
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<label for="reg-email">Email</label>
+							<input type="email" class="form-control" id="reg-email"
+								placeholder="you@example.com">
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<label for="reg-company">Company</label>
+							<input type="text" class="form-control" id="reg-company"
+								placeholder="Company you represent">
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<label for="reg-id-type">ID Proof Type</label>
+							<select class="form-control" id="reg-id-type">
+								{% for opt in id_proof_options %}
+								<option value="{{ opt }}">{{ opt }}</option>
+								{% endfor %}
+							</select>
+						</div>
+					</div>
+					<div class="col-md-6">
+						<div class="form-group">
+							<label for="reg-id-no">ID Proof Number</label>
+							<input type="text" class="form-control" id="reg-id-no"
+								placeholder="Last 4 digits are enough">
+						</div>
+					</div>
+				</div>
+				<button type="submit" class="btn btn-primary" id="reg-submit">
+					Register Me
+				</button>
+			</form>
+
+			<div id="vp-register-result" class="mt-4" style="display:none">
+				<div class="alert alert-success mb-0">
+					<b id="vp-register-title"></b>
+					<p class="mb-0 mt-1" id="vp-register-msg"></p>
+				</div>
+				<div class="row mt-3" id="vp-next-steps"></div>
+			</div>
+		</div>
+
+		<!-- ======================= TAB 2 : TRACK ======================= -->
+		<div id="vp-track" style="display:none">
+			<h5 class="font-weight-bold mb-1">Track My Visit</h5>
+			<p class="vp-hint mb-4">See the status of your requests and any passes issued for you.</p>
+
+			<form id="vp-track-form" class="row">
+				<div class="col-md-5">
+					<div class="form-group mb-0">
+						<label for="track-phone">Phone Number *</label>
+						<input type="tel" class="form-control" id="track-phone" required
+							placeholder="Phone you registered with">
+					</div>
+				</div>
+				<div class="col-md-4">
+					<div class="form-group mb-0">
+						<label for="track-pass">Entry Pass No. (optional)</label>
+						<input type="text" class="form-control" id="track-pass"
+							placeholder="e.g. PASS-2026-00012">
+					</div>
+				</div>
+				<div class="col-md-3 d-flex align-items-end">
+					<button type="submit" class="btn btn-primary w-100" id="track-submit">
+						Look Up
+					</button>
+				</div>
+			</form>
+
+			<div id="vp-track-result" class="mt-4"></div>
+		</div>
+
+		<!-- ======================= TAB 3 : QR PASS ======================= -->
+		<div id="vp-pass" style="display:none">
+			<h5 class="font-weight-bold mb-1">My Pass — QR Code</h5>
+			<p class="vp-hint mb-4">Enter your pass number to view or download the QR code for the gate scanner.</p>
+
+			<form id="vp-pass-form" class="row">
+				<div class="col-md-5">
+					<div class="form-group mb-0">
+						<label for="pass-number">Entry Pass No. *</label>
+						<input type="text" class="form-control" id="pass-number" required
+							placeholder="e.g. PASS-2026-00012">
+					</div>
+				</div>
+				<div class="col-md-4">
+					<div class="form-group mb-0">
+						<label for="pass-phone">Phone Number *</label>
+						<input type="tel" class="form-control" id="pass-phone" required
+							placeholder="Phone you registered with">
+					</div>
+				</div>
+				<div class="col-md-3 d-flex align-items-end">
+					<button type="submit" class="btn btn-primary w-100" id="pass-submit">
+						Get QR
+					</button>
+				</div>
+			</form>
+
+			<div id="vp-pass-result" class="mt-4"></div>
+		</div>
+	</div>
+
+	<div class="text-center mt-4 vp-hint">
+		Employees: raise a visit request from the
+		<a href="/request-a-visit">Request a Visit</a> form.
+	</div>
+</div>
+
+<div id="vp-print-area"></div>
+<div class="vp-toast" id="vp-toast"></div>
+{% endblock %}
+
+{% block script %}
+<script>
+(function () {
+	"use strict";
+
+	if (typeof frappe === "undefined" || !frappe.call) {
+		document.getElementById("vp-content").innerHTML =
+			'<div class="alert alert-danger">The portal script could not be loaded. Please refresh the page.</div>';
+		return;
+	}
+
+	var $ = function (id) { return document.getElementById(id); };
+
+	function api(method, args) {
+		return new Promise(function (resolve, reject) {
+			frappe.call({
+				method: method,
+				args: args,
+				callback: function (r) {
+					if (r && r.message !== undefined) { resolve(r.message); }
+					else { resolve(r); }
+				},
+				error: function (err) { reject(err); }
+			});
+		});
+	}
+
+	var toastTimer = null;
+	function toast(message, type) {
+		var el = $("vp-toast");
+		el.textContent = message;
+		el.className = "vp-toast " + (type || "info");
+		el.style.display = "block";
+		clearTimeout(toastTimer);
+		toastTimer = setTimeout(function () { el.style.display = "none"; }, 4000);
+	}
+
+	function setBusy(button, busy, busyText) {
+		if (busy) {
+			button.dataset.label = button.innerHTML;
+			button.disabled = true;
+			button.innerHTML = '<span class="spinner-border spinner-border-sm mr-1"></span>' + (busyText || "Please wait…");
+		} else {
+			button.disabled = false;
+			if (button.dataset.label) { button.innerHTML = button.dataset.label; }
+		}
+	}
+
+	function esc(s) {
+		return String(s === null || s === undefined ? "" : s)
+			.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+	}
+
+	function statusChip(state) {
+		var s = String(state || "").toLowerCase();
+		var cls = "other";
+		if (/approved|active/.test(s)) { cls = "approved"; }
+		else if (/rejected|revoked/.test(s)) { cls = "rejected"; }
+		else if (/used|completed/.test(s)) { cls = "used"; }
+		else if (/expired/.test(s)) { cls = "expired"; }
+		else if (/pending|check|draft/.test(s)) { cls = s.indexOf("draft") !== -1 ? "draft" : "pending"; }
+		return '<span class="vp-status ' + cls + '">' + esc(state || "-") + "</span>";
+	}
+
+	function fmtDT(value) {
+		if (!value) { return "-"; }
+		try {
+			var d = new Date(String(value).replace(" ", "T"));
+			return d.toLocaleString(undefined, {
+				year: "numeric", month: "short", day: "numeric",
+				hour: "2-digit", minute: "2-digit"
+			});
+		} catch (e) { return esc(value); }
+	}
+
+	/* ---------------- tabs ---------------- */
+	var tabs = document.querySelectorAll("[data-vp-tab]");
+	tabs.forEach(function (link) {
+		link.addEventListener("click", function (ev) {
+			ev.preventDefault();
+			var target = link.dataset.vpTab;
+			tabs.forEach(function (l) { l.classList.remove("active"); });
+			link.classList.add("active");
+			["register", "track", "pass"].forEach(function (t) {
+				$("vp-" + t).style.display = (t === target) ? "block" : "none";
+			});
+		});
+	});
+
+	/* ---------------- TAB 1 : pre-register ---------------- */
+	$("vp-register-form").addEventListener("submit", function (ev) {
+		ev.preventDefault();
+		var btn = $("reg-submit");
+		setBusy(btn, true, "Registering…");
+		api("visitor_pass_tracker.portal.register_visitor", {
+			visitor_name: $("reg-name").value,
+			phone: $("reg-phone").value,
+			email: $("reg-email").value,
+			company_name: $("reg-company").value,
+			id_proof_type: $("reg-id-type").value,
+			id_proof_number: $("reg-id-no").value
+		}).then(function (res) {
+			setBusy(btn, false);
+			$("vp-register-result").style.display = "block";
+			$("vp-register-title").textContent =
+				res.status === "created" ? "You're registered, " + (res.visitor_name || "") + "!" :
+				"We found your existing registration.";
+			$("vp-register-msg").textContent = res.message ||
+				"Ask your host to raise a visit request for you.";
+			renderNextSteps();
+			toast("Registration saved", "success");
+		}).catch(function (err) {
+			setBusy(btn, false);
+			toast(cleanErr(err), "error");
+		});
+	});
+
+	function renderNextSteps() {
+		var html = '<div class="col-md-6"><div class="card h-100"><div class="card-body">' +
+			'<h6 class="font-weight-bold">Next step</h6>' +
+			'<p class="mb-2 vp-hint">Your host raises the visit request. Once approved, ' +
+			"the pass and QR code reach you by email / SMS.</p>" +
+			'<button class="btn btn-outline-primary btn-sm" data-vp-goto="track">' +
+			"Track my visit</button></div></div></div>";
+		$("vp-next-steps").innerHTML = html;
+		$("vp-next-steps").querySelector("[data-vp-goto=track]").addEventListener("click", function () {
+			tabs.forEach(function (l) { l.classList.remove("active"); });
+			$("tab-track-link").classList.add("active");
+			["register", "track", "pass"].forEach(function (t) {
+				$("vp-" + t).style.display = (t === "track") ? "block" : "none";
+			});
+		});
+	}
+
+	/* ---------------- TAB 2 : track ---------------- */
+	$("vp-track-form").addEventListener("submit", function (ev) {
+		ev.preventDefault();
+		var btn = $("track-submit");
+		setBusy(btn, true, "Looking up…");
+		api("visitor_pass_tracker.portal.track_visit", {
+			phone: $("track-phone").value,
+			pass_number: $("track-pass").value
+		}).then(function (res) {
+			setBusy(btn, false);
+			renderTrack(res);
+		}).catch(function (err) {
+			setBusy(btn, false);
+			toast(cleanErr(err), "error");
+		});
+	});
+
+	function renderTrack(res) {
+		var box = $("vp-track-result");
+		var visits = res.visits || [];
+		var passes = res.passes || [];
+
+		if (!visits.length && !passes.length) {
+			box.innerHTML = '<div class="alert alert-info mb-0">' +
+				"No visits found for this phone number. Pre-register first, or ask your host to raise a request." +
+				"</div>";
+			return;
+		}
+
+		var html = '<div class="row">';
+		html += '<div class="col-lg-6 mb-3"><h6 class="font-weight-bold">My Requests</h6><div class="vp-timeline">';
+		if (!visits.length) { html += '<p class="vp-hint">No requests yet.</p>'; }
+		visits.forEach(function (v, i) {
+			html += '<div class="vp-item ' + (i % 2 ? "alt" : "") + '">' +
+				"<div class=\"d-flex justify-content-between\"><b>" + esc(v.name) + "</b>" +
+				statusChip(v.workflow_state) + "</div>" +
+				'<div class="vp-hint mt-1">' + esc(v.visit_date) +
+				(v.visit_end_date && v.visit_end_date !== v.visit_date ? " → " + esc(v.visit_end_date) : "") +
+				" · " + esc(v.purpose || "Visit") + " · " + esc(v.location_gate || "Gate TBD") + "</div>" +
+				(v.workflow_state === "Rejected" && v.rejection_reason ?
+					'<div class="text-danger vp-hint mt-1">Reason: ' + esc(v.rejection_reason) + "</div>" : "") +
+				"</div>";
+		});
+		html += "</div></div>";
+
+		html += '<div class="col-lg-6"><h6 class="font-weight-bold">My Entry Passes</h6>';
+		if (!passes.length) {
+			html += '<p class="vp-hint">No passes yet. A pass is issued after your request is approved.</p>';
+		}
+		passes.forEach(function (p) {
+			var cls = (String(p.status || "").toLowerCase() === "active") ? "" :
+				" " + String(p.status || "").toLowerCase();
+			html += '<div class="card vp-pass mb-2' + cls + '"><div class="card-body py-2">' +
+				"<div class=\"d-flex justify-content-between align-items-center\">" +
+				"<b>" + esc(p.name) + "</b>" + statusChip(p.status) + "</div>" +
+				'<div class="vp-hint mt-1">' + fmtDT(p.valid_from) + " → " + fmtDT(p.valid_till) +
+				" · " + esc(p.gate || "Gate TBD") + "</div>" +
+				'<button class="btn btn-sm btn-outline-primary mt-2" data-vp-qr="' + esc(p.name) + '">' +
+				"Show QR</button></div></div>";
+		});
+		html += "</div></div>";
+
+		box.innerHTML = html;
+		box.querySelectorAll("[data-vp-qr]").forEach(function (b) {
+			b.addEventListener("click", function () {
+				$("pass-number").value = b.dataset.vpQr;
+				$("pass-phone").value = $("track-phone").value;
+				tabs.forEach(function (l) { l.classList.remove("active"); });
+				$("tab-pass-link").classList.add("active");
+				["register", "track", "pass"].forEach(function (t) {
+					$("vp-" + t).style.display = (t === "pass") ? "block" : "none";
+				});
+				$("vp-pass-form").dispatchEvent(new Event("submit", { cancelable: true }));
+			});
+		});
+	}
+
+	/* ---------------- TAB 3 : QR pass ---------------- */
+	$("vp-pass-form").addEventListener("submit", function (ev) {
+		ev.preventDefault();
+		var btn = $("pass-submit");
+		setBusy(btn, true, "Loading QR…");
+		api("visitor_pass_tracker.portal.get_pass_qr", {
+			pass_number: $("pass-number").value,
+			phone: $("pass-phone").value
+		}).then(function (res) {
+			setBusy(btn, false);
+			renderPass(res);
+		}).catch(function (err) {
+			setBusy(btn, false);
+			toast(cleanErr(err), "error");
+		});
+	});
+
+	function renderPass(p) {
+		var box = $("vp-pass-result");
+		box.innerHTML =
+			'<div class="row"><div class="col-md-5 mb-3">' +
+			'<div class="vp-qr-box text-center">' +
+			'<img src="' + esc(p.qr_data_url) + '" alt="QR code">' +
+			'<div class="mt-2 font-weight-bold">' + esc(p.name) + "</div>" +
+			'<div class="vp-hint">Scan at the gate or show this screen</div>' +
+			'<div class="mt-3">' +
+			'<button class="btn btn-primary btn-sm" id="vp-dl">Download</button> ' +
+			'<button class="btn btn-outline-secondary btn-sm" id="vp-print">Print</button>' +
+			"</div></div></div>" +
+			'<div class="col-md-7"><div class="card"><div class="card-body">' +
+			"<h6 class=\"font-weight-bold\">Pass Details</h6>" +
+			'<table class="table table-sm mb-0 mt-2">' +
+			"<tr><td class=\"text-muted\">Visitor</td><td class=\"font-weight-bold\">" + esc(p.visitor_name || "-") + "</td></tr>" +
+			"<tr><td class=\"text-muted\">Status</td><td>" + statusChip(p.status) + "</td></tr>" +
+			"<tr><td class=\"text-muted\">Gate</td><td>" + esc(p.gate || "-") + "</td></tr>" +
+			"<tr><td class=\"text-muted\">Valid From</td><td>" + fmtDT(p.valid_from) + "</td></tr>" +
+			"<tr><td class=\"text-muted\">Valid Till</td><td>" + fmtDT(p.valid_till) + "</td></tr>" +
+			"</table></div></div></div></div>";
+
+		$("vp-dl").addEventListener("click", function () {
+			var a = document.createElement("a");
+			a.href = p.qr_data_url;
+			a.download = p.name + "-qr.png";
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			toast("QR image downloaded", "success");
+		});
+		$("vp-print").addEventListener("click", function () {
+			printBadge(p);
+		});
+	}
+
+	function printBadge(p) {
+		var area = $("vp-print-area");
+		area.innerHTML =
+			'<div style="width:360px;border:3px solid #1a2a4a;border-radius:14px;padding:18px;font-family:sans-serif;text-align:center;">' +
+			'<div style="letter-spacing:2px;font-size:11px;color:#2490ef;font-weight:700;">VISITOR ENTRY PASS</div>' +
+			'<div style="font-size:22px;font-weight:800;margin:6px 0 2px;">' + esc(p.visitor_name || "-") + "</div>" +
+			'<div style="font-size:13px;color:#555;">' + esc(p.name) + " &nbsp;·&nbsp; " + esc(p.gate || "Gate") + "</div>" +
+			'<img src="' + esc(p.qr_data_url) + '" style="width:150px;height:150px;margin:10px 0;">' +
+			'<div style="font-size:12px;color:#333;">' + fmtDT(p.valid_from) + " → " + fmtDT(p.valid_till) + "</div>" +
+			'<div style="font-size:10px;color:#888;margin-top:8px;">Present this pass at the gate. Security scans to verify.</div>' +
+			"</div>";
+		window.print();
+	}
+
+	/* ---------------- helpers ---------------- */
+	function cleanErr(err) {
+		var msg = "";
+		try {
+			// Frappe server errors usually expose the readable message here
+			if (err && err._server_messages && err._server_messages.length) {
+				msg = String(err._server_messages[0]);
+				msg = msg.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
+			} else if (err && err.message) {
+				msg = String(err.message);
+				var m = msg.match(/"message":\s*"([^"]+)"/);
+				if (m) { msg = m[1]; }
+				msg = msg.replace(/[()]/g, "");
+			} else {
+				msg = String(err);
+			}
+		} catch (e) { msg = ""; }
+		if (!msg || msg === "undefined") { msg = "Something went wrong. Please try again."; }
+		return msg;
+	}
+})();
+</script>
+{% endblock %}

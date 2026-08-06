@@ -210,6 +210,18 @@ manual desk entries are distinguishable from hardware scans.
 
 ## Self-service & operations
 
+- **Public Visitor Portal** (`/visitor_portal`) - a guest-accessible website page
+  backed by `allow_guest=True` APIs (`visitor_pass_tracker.portal`):
+  - **Pre-Register** - creates/updates the Visitor master (deduplicated by
+    phone; the visitor's linked ERPNext Contact is auto-created).
+  - **Track My Visit** - a visitor can look up only their own requests/passes
+    by phone, with live workflow status (approved / pending / rejected).
+  - **My Pass (QR)** - downloads / prints the QR badge for any pass the phone
+    number verifiably owns. Private QR files are read server-side and returned
+    as a data URL, so no file permissions are exposed.
+  The page works with the standard Frappe website chrome (no login, no extra
+  setup - CSRF is handled by `frappe.call`); a **Visitor Portal** shortcut was
+  added to the desk workspace.
 - **Web forms** (shipped as fixtures): **Request a Visit** (`/request-a-visit`, login
   required, raises a Draft Visitor Request - the logged-in employee becomes the
   default host) and **Visitor Pre-Registration** (`/visitor-pre-registration`,

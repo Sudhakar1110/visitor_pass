@@ -793,7 +793,24 @@ def check_installation():
 		", ".join(cron) or "none",
 	)
 
-	# 8) DB indexes (created by bench migrate for search_index fields)
+	# 8) public Visitor Portal (www page + guest APIs - no DB records)
+	import os
+
+	module_dir = frappe.utils.get_module_path("visitor_pass_tracker")
+	mark(
+		"portal:www page",
+		os.path.exists(os.path.join(module_dir, "www", "visitor_portal.html")),
+	)
+	try:
+		guest_apis_ok = all(
+			callable(frappe.get_attr("visitor_pass_tracker.portal.{0}".format(name)))
+			for name in ["register_visitor", "track_visit", "get_pass_qr"]
+		)
+	except Exception:
+		guest_apis_ok = False
+	mark("portal:guest APIs", guest_apis_ok)
+
+	# 9) DB indexes (created by bench migrate for search_index fields)
 	for table, columns in {
 		"tabGate Log Entry": ["scan_time", "entry_pass"],
 		"tabEntry Pass": ["valid_till"],

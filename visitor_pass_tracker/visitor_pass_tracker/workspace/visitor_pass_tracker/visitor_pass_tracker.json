@@ -29,7 +29,7 @@
    "label": "Visits per Host"
   }
  ],
- "content": "[{\"id\":\"vpt_1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Purpose\",\"col\":6}},{\"id\":\"vpt_2\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Department\",\"col\":6}},{\"id\":\"vpt_3\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Peak Visit Hours\",\"col\":6}},{\"id\":\"vpt_4\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Reconciliation Summary\",\"col\":6}},{\"id\":\"vpt_20\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Gate\",\"col\":6}},{\"id\":\"vpt_21\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Month\",\"col\":6}},{\"id\":\"vpt_22\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits per Host\",\"col\":6}},{\"id\":\"vpt_5\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Visitors On-Site Now\",\"col\":6}},{\"id\":\"vpt_6\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Passes Expiring in Next Hour\",\"col\":6}},{\"id\":\"vpt_24\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Visitors Expected Today\",\"col\":6}},{\"id\":\"vpt_7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"vpt_8\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"vpt_9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Visitor Request\",\"col\":3}},{\"id\":\"vpt_10\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Requests\",\"col\":3}},{\"id\":\"vpt_11\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Entry Passes\",\"col\":3}},{\"id\":\"vpt_12\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Logs\",\"col\":3}},{\"id\":\"vpt_13\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Reconciliation\",\"col\":3}},{\"id\":\"vpt_14\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Overview\",\"col\":3}},{\"id\":\"vpt_23\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Visitor Register\",\"col\":3}},{\"id\":\"vpt_25\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Scanner\",\"col\":3}},{\"id\":\"vpt_26\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Expected Visitors\",\"col\":3}},{\"id\":\"vpt_15\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"vpt_16\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"vpt_17\",\"type\":\"card\",\"data\":{\"card_name\":\"Visitors\",\"col\":4}},{\"id\":\"vpt_18\",\"type\":\"card\",\"data\":{\"card_name\":\"Requests & Entry Passes\",\"col\":4}},{\"id\":\"vpt_19\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup & Reports\",\"col\":4}}]",
+ "content": "[{\"id\":\"vpt_1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Purpose\",\"col\":6}},{\"id\":\"vpt_2\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Department\",\"col\":6}},{\"id\":\"vpt_3\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Peak Visit Hours\",\"col\":6}},{\"id\":\"vpt_4\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Reconciliation Summary\",\"col\":6}},{\"id\":\"vpt_20\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Gate\",\"col\":6}},{\"id\":\"vpt_21\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits by Month\",\"col\":6}},{\"id\":\"vpt_22\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Visits per Host\",\"col\":6}},{\"id\":\"vpt_5\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Visitors On-Site Now\",\"col\":6}},{\"id\":\"vpt_6\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Passes Expiring in Next Hour\",\"col\":6}},{\"id\":\"vpt_24\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Visitors Expected Today\",\"col\":6}},{\"id\":\"vpt_7\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"vpt_8\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\",\"col\":12}},{\"id\":\"vpt_9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Visitor Request\",\"col\":3}},{\"id\":\"vpt_10\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Requests\",\"col\":3}},{\"id\":\"vpt_11\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Entry Passes\",\"col\":3}},{\"id\":\"vpt_12\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Logs\",\"col\":3}},{\"id\":\"vpt_13\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Reconciliation\",\"col\":3}},{\"id\":\"vpt_14\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Overview\",\"col\":3}},{\"id\":\"vpt_23\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Visitor Register\",\"col\":3}},{\"id\":\"vpt_25\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Gate Scanner\",\"col\":3}},{\"id\":\"vpt_26\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Expected Visitors\",\"col\":3}},{\"id\":\"vpt_27\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Visitor Portal\",\"col\":3}},{\"id\":\"vpt_15\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"vpt_16\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports &amp; Masters</b></span>\",\"col\":12}},{\"id\":\"vpt_17\",\"type\":\"card\",\"data\":{\"card_name\":\"Visitors\",\"col\":4}},{\"id\":\"vpt_18\",\"type\":\"card\",\"data\":{\"card_name\":\"Requests & Entry Passes\",\"col\":4}},{\"id\":\"vpt_19\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup & Reports\",\"col\":4}}]",
  "creation": "2026-01-01 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -175,6 +175,17 @@
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Visitor Portal",
+   "link_count": 0,
+   "link_to": "/visitor_portal",
+   "link_type": "URL",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
  "modified": "2026-01-01 00:00:00.000000",
@@ -251,6 +262,11 @@
    "label": "Gate Scanner",
    "link_to": "gate-scanner",
    "type": "Page"
+  },
+  {
+   "label": "Visitor Portal",
+   "link_to": "/visitor_portal",
+   "type": "URL"
   }
  ],
  "title": "Visitor Pass Tracker"
