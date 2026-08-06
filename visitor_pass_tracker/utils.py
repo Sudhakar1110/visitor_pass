@@ -266,18 +266,25 @@ def _merged_filter():
 
 
 # ---------------------------------------------------------------------------
-# Pre-registration - auto-create a Draft Visitor Request for the desk
+# Pre-registration - auto-create a Visitor Request for the desk / approval flow
 # ---------------------------------------------------------------------------
 
 
 def ensure_draft_visitor_request(visitor):
-	"""Create a Draft Visitor Request for a pre-registered visitor so the desk
-	picks it up immediately (Reception completes the host / gate / window and
-	submits it through the normal workflow).
+	"""Create a Visitor Request for a pre-registered visitor so it is picked up
+	by the desk / approval flow immediately.
 
 	Idempotent: while any open (non-Rejected) request exists for the visitor,
-	the existing one is returned and nothing new is created. Never raises -
-	pre-registration must never fail because of this."""
+	the existing one is returned and nothing new is created.
+
+	By default the request stays Draft for Reception to complete. When a
+	default host is configured (`visitor_pass_portal_default_host` in
+	site_config.json) the request is auto-completed with that host (and the
+	optional `visitor_pass_portal_default_gate`) and **submitted**, so it flows
+	straight into the normal approval workflow (Blacklist Check -> Pending Host
+	Approval -> ...) instead of sitting as a Draft on the desk.
+
+	Never raises - pre-registration must never fail because of this."""
 	if not visitor or not frappe.db.exists("Visitor", visitor):
 		return None
 	try:
@@ -293,10 +300,21 @@ def ensure_draft_visitor_request(visitor):
 		if existing:
 			return existing
 
+		# optional site_config defaults - the request is only auto-submitted
+		# when a default host is configured (gate stays optional)
+		default_host = frappe.conf.get("visitor_pass_portal_default_host") or ""
+		default_gate = frappe.conf.get("visitor_pass_portal_default_gate") or ""
+		if default_host and not frappe.db.exists("Employee", default_host):
+			default_host = ""
+		if default_gate and not frappe.db.exists("Gate", default_gate):
+			default_gate = ""
+
 		request = frappe.get_doc(
 			{
 				"doctype": "Visitor Request",
 				"visitor": visitor,
+				"host": default_host or None,
+				"location_gate": default_gate or None,
 				"purpose": "Meeting",
 				"visit_date": getdate(),
 				"expected_in_time": "09:00:00",
@@ -304,8 +322,22 @@ def ensure_draft_visitor_request(visitor):
 				"notes": _("Auto-created from visitor pre-registration."),
 			}
 		)
-		# host is intentionally blank - Reception assigns it in the desk
 		request.insert(ignore_permissions=True, ignore_mandatory=True)
+
+		# With a configured default host the request is complete - submit it so
+		# it enters the approval workflow (the auto transitions are allowed to
+		# "All", so the Guest session can apply them once submit permission is
+		# bypassed). On any failure the request simply stays Draft on the desk
+		# and Reception completes it manually as before.
+		if default_host:
+			request.flags.ignore_permissions = True
+			try:
+				request.submit()
+			except Exception:
+				frappe.log_error(
+					title=_("Visitor Pass Tracker: auto-submit of pre-registration failed"),
+				message=frappe.get_traceback(),
+			)
 		return request.name
 	except Exception:
 		frappe.log_error(

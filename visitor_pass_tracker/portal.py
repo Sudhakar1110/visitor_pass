@@ -121,6 +121,30 @@ def register_visitor(
 			"Visitor", {"email": email, **merged}, "name"
 		)
 
+	# mirror ensure_draft_visitor_request's logic so the message only claims
+	# auto-submission when a valid default host is actually configured
+	default_host = frappe.conf.get("visitor_pass_portal_default_host") or ""
+	auto_submitted = bool(default_host) and frappe.db.exists("Employee", default_host)
+	if auto_submitted:
+		created_message = _(
+			"You are registered! Your visit request has been submitted for approval - "
+			"you will receive your entry pass as soon as it is approved. "
+			"Track it anytime with your phone number."
+		)
+		updated_message = _(
+			"Your details are registered. Your visit request has been submitted for "
+			"approval - track it anytime with your phone number."
+		)
+	else:
+		created_message = _(
+			"You are registered! A visit request has been created for you and "
+			"our team will complete it. Track it anytime with your phone number."
+		)
+		updated_message = _(
+			"Your details are registered. A visit request has been created "
+			"and is being processed - you can track it with your phone number."
+		)
+
 	if existing:
 		doc = frappe.get_doc("Visitor", existing)
 		# make sure the desk has an open request for this visitor too
@@ -146,8 +170,7 @@ def register_visitor(
 			"visitor_name": doc.visitor_name,
 			"phone": doc.phone,
 			"request": request_name,
-			"message": _("Your details are registered. A visit request has been created "
-						"and is being processed - you can track it with your phone number."),
+			"message": updated_message,
 		}
 
 	doc = frappe.get_doc(
@@ -172,8 +195,7 @@ def register_visitor(
 		"visitor_name": doc.visitor_name,
 		"phone": doc.phone,
 		"request": request_name,
-		"message": _("You are registered! A visit request has been created for you and "
-						"our team will complete it. Track it anytime with your phone number."),
+		"message": created_message,
 	}
 
 

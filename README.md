@@ -205,9 +205,15 @@ Active `Blacklisted Visitor` records (phone is normalized to digits).
 > `visitor_pass_stale_days`, `visitor_pass_trusted_visit_threshold`,
 > `visitor_pass_overstay_blacklist_threshold`,
 > `visitor_pass_unauthorized_blacklist_threshold`, `visitor_pass_digest_roles`,
-> `visitor_pass_recon_digest_roles`. Set a threshold to `0` to disable that
-> automation. After pulling this release run `bench --site <sitename> migrate`
-> (adds the new columns) and `bench restart` (picks up the new crons).
+> `visitor_pass_recon_digest_roles`. Portal pre-registration:
+> `visitor_pass_portal_default_host` (Employee used to auto-complete and
+> auto-submit portal/web-form requests - unset keeps them Draft for Reception;
+> the Employee should have an active User, and requests created **before** this
+> setting is added stay Draft until handled manually) and
+> `visitor_pass_portal_default_gate` (optional default Gate). Set a
+> threshold to `0` to disable that automation. After pulling this release run
+> `bench --site <sitename> migrate` (adds the new columns) and `bench restart`
+> (picks up the new crons).
 
 ---
 
@@ -277,14 +283,16 @@ manual desk entries are distinguishable from hardware scans.
   backed by `allow_guest=True` APIs (`visitor_pass_tracker.portal`):
   - **Pre-Register** - creates/updates the Visitor master (deduplicated by
     phone; the visitor's linked ERPNext Contact is auto-created) **and
-    auto-creates a Draft Visitor Request in the desk** so Reception/Security
-    can complete the host, gate and window and submit it through the normal
-    workflow (idempotent - no second request while one is already open). The
-    same applies to the public `visitor-pre-registration` web form; visitors
-    created from the desk itself are never auto-requested. Note: since `Host`
-    is a mandatory field, the auto-created draft sits in the desk as **Draft**
-    and can only be submitted after Reception assigns the host (and adjusts
-    the gate/window if needed).
+    auto-creates a Visitor Request** (idempotent - no second request while one
+    is already open). By default the request stays **Draft** in the desk for
+    Reception/Security to complete the host, gate and window and submit it
+    through the normal workflow. When `visitor_pass_portal_default_host` is
+    set in site_config.json, the request is **auto-completed with that host
+    (plus the optional `visitor_pass_portal_default_gate`) and auto-submitted**
+    - it enters the approval workflow immediately (Blacklist Check -> Pending
+    Host Approval -> ...) instead of sitting as a Draft on the desk. The same
+    applies to the public `visitor-pre-registration` web form; visitors
+    created from the desk itself are never auto-requested.
   - **Track My Visit** - a visitor can look up only their own requests/passes
     by phone, with live workflow status (approved / pending / rejected).
   - **My Pass (QR)** - downloads / prints the QR badge for any pass the phone
@@ -296,7 +304,8 @@ manual desk entries are distinguishable from hardware scans.
 - **Web forms** (shipped as fixtures): **Request a Visit** (`/request-a-visit`, login
   required, raises a Draft Visitor Request - the logged-in employee becomes the
   default host) and **Visitor Pre-Registration** (`/visitor-pre-registration`,
-  public, creates/updates the Visitor master).
+  public, creates/updates the Visitor master and auto-submits the request when
+  a default host is configured - see Configuration below).
 - **Gate Scanner** desk page (`/app/gate-scanner`) - a console for security to
   scan/paste a pass and run Entry / Exit / Manual Exit / Revoke / Extend without
   REST calls (camera scanning can be added on top; the console works with the
