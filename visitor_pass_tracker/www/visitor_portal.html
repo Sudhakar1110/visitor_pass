@@ -240,6 +240,21 @@
 	}
 	.vp-btn-ghost:hover { background: rgba(255, 255, 255, 0.11); border-color: var(--vp-cyan); transform: translateY(-1px); }
 
+	.vp-btn-cancel {
+		display: inline-block;
+		border: 1px solid rgba(251, 113, 133, 0.4);
+		border-radius: 9px;
+		padding: 0.34rem 0.8rem;
+		font-size: 0.78rem; font-weight: 700;
+		color: var(--vp-red);
+		background: rgba(251, 113, 133, 0.08);
+		transition: background 0.2s, border-color 0.2s, transform 0.18s;
+		cursor: pointer;
+	}
+	.vp-btn-cancel:hover { background: rgba(251, 113, 133, 0.16); border-color: var(--vp-red); transform: translateY(-1px); }
+
+	.vp-cancel-hint { font-size: 0.72rem; color: var(--vp-muted); margin-top: 0.3rem; }
+
 	.vp-register-result {
 		display: none;
 		margin-top: 1rem;
@@ -268,8 +283,8 @@
 	.vp-status.rejected::before, .vp-status.revoked::before { background: var(--vp-red); box-shadow: 0 0 8px var(--vp-red); }
 	.vp-status.pending { color: var(--vp-amber); border-color: rgba(251,191,36,0.35); }
 	.vp-status.pending::before { background: var(--vp-amber); box-shadow: 0 0 8px var(--vp-amber); }
-	.vp-status.expired, .vp-status.other, .vp-status.draft { color: var(--vp-muted); border-color: var(--vp-line); }
-	.vp-status.expired::before, .vp-status.other::before, .vp-status.draft::before { background: var(--vp-muted); }
+	.vp-status.expired, .vp-status.other, .vp-status.draft, .vp-status.cancelled { color: var(--vp-muted); border-color: var(--vp-line); }
+	.vp-status.expired::before, .vp-status.other::before, .vp-status.draft::before, .vp-status.cancelled::before { background: var(--vp-muted); }
 
 	/* ---------------- timeline ---------------- */
 	.vp-timeline { position: relative; padding-left: 1.5rem; }
@@ -292,8 +307,9 @@
 
 	/* ---------------- pass cards ----------------
 	   Higher-specificity selectors so the dark theme always wins over
-	   Bootstrap's white .card background regardless of CSS load order. */
-	#vp-dash-passes .card.vp-pass {
+	   Bootstrap's white .card background regardless of CSS load order.
+	   Covers the dashboard passes AND the QR-scan card (vp-scan-card). */
+	#vp-dash-passes .card.vp-pass, #vp-scan-card .card.vp-pass {
 		border: 1px solid var(--vp-line);
 		border-left: 3px solid var(--vp-violet);
 		border-radius: 14px;
@@ -301,10 +317,11 @@
 		box-shadow: 0 14px 30px rgba(3, 7, 20, 0.3);
 		transition: transform 0.22s, border-color 0.25s, box-shadow 0.25s;
 	}
-	#vp-dash-passes .card.vp-pass:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(3, 7, 20, 0.5); }
-	#vp-dash-passes .card.vp-pass.revoked, #vp-dash-passes .card.vp-pass.expired { border-left-color: var(--vp-red); }
-	#vp-dash-passes .card.vp-pass.used { border-left-color: var(--vp-green); }
-	#vp-dash-passes .card-body { background: transparent; color: var(--vp-ink); }
+	#vp-dash-passes .card.vp-pass:hover, #vp-scan-card .card.vp-pass:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(3, 7, 20, 0.5); }
+	#vp-dash-passes .card.vp-pass.revoked, #vp-dash-passes .card.vp-pass.expired,
+	#vp-scan-card .card.vp-pass.revoked, #vp-scan-card .card.vp-pass.expired { border-left-color: var(--vp-red); }
+	#vp-dash-passes .card.vp-pass.used, #vp-scan-card .card.vp-pass.used { border-left-color: var(--vp-green); }
+	#vp-dash-passes .card-body, #vp-scan-card .card-body { background: transparent; color: var(--vp-ink); }
 
 	.vp-qr-box {
 		position: relative;
@@ -381,7 +398,8 @@
 			animation: none !important;
 		}
 		.vp-timeline .vp-item, .vp-qr-box { animation: none; }
-		#vp-dash-passes .card.vp-pass, #vp-dash-passes .card.vp-pass:hover { transform: none; box-shadow: none; }
+		#vp-dash-passes .card.vp-pass, #vp-dash-passes .card.vp-pass:hover,
+		#vp-scan-card .card.vp-pass, #vp-scan-card .card.vp-pass:hover { transform: none; box-shadow: none; }
 	}
 
 	#vp-print-area { display: none; }
@@ -419,6 +437,10 @@
 			<span id="vp-live-text">Live updates are on — you'll be notified here.</span>
 			<a id="vp-live-stop">Stop</a>
 		</div>
+
+		<!-- QR scan experience: opened when a phone camera scans a pass QR
+		     (/visitor_portal?pass=PASS-...) - shows the pass status live -->
+		<div id="vp-scan-card" style="display:none"></div>
 
 		<div class="row">
 			<!-- ======================= LEFT : REGISTER FORM ======================= -->
@@ -565,6 +587,7 @@
 		var cls = "other";
 		if (/approved|active/.test(s)) { cls = "approved"; }
 		else if (/rejected|revoked/.test(s)) { cls = "rejected"; }
+		else if (/cancell/.test(s)) { cls = "cancelled"; }
 		else if (/used|completed/.test(s)) { cls = "used"; }
 		else if (/expired/.test(s)) { cls = "expired"; }
 		else if (/pending|check|draft/.test(s)) { cls = s.indexOf("draft") !== -1 ? "draft" : "pending"; }
@@ -690,7 +713,7 @@
 
 	/* ---------------- live dashboard ---------------- */
 	function dashboardSig(res) {
-		var visits = (res.visits || []).map(function (v) { return [v.name, v.workflow_state]; });
+		var visits = (res.visits || []).map(function (v) { return [v.name, v.workflow_state, v.docstatus]; });
 		var passes = (res.passes || []).map(function (p) { return [p.name, p.status]; });
 		return JSON.stringify({ v: visits, p: passes });
 	}
@@ -714,19 +737,40 @@
 			reqBox.innerHTML = '<p class="vp-hint mb-0">No requests yet.</p>';
 		} else {
 			var html = '<div class="vp-timeline">';
+			// requests whose visit already completed (linked pass Used) cannot be cancelled
+			var usedRequests = {};
+			passes.forEach(function (p) {
+				if (String(p.status || "").toLowerCase() === "used" && p.visitor_request) {
+					usedRequests[p.visitor_request] = true;
+				}
+			});
 			visits.forEach(function (v, i) {
+				var displayState = v.workflow_state || "";
+				if (Number(v.docstatus) === 2) { displayState = "Cancelled"; }
+				// cancellable: an open (non-rejected, non-cancelled) request whose visit
+				// has not already been completed (server also enforces this)
+				var cancellable = Number(v.docstatus) < 2 && displayState !== "Rejected" && !usedRequests[v.name];
 				html += '<div class="vp-item ' + (i % 2 ? "alt" : "") + '">' +
 					'<div class="d-flex justify-content-between align-items-center"><b>' + esc(v.name) + "</b>" +
-					statusChip(v.workflow_state) + "</div>" +
+					statusChip(displayState) + "</div>" +
 					'<div class="vp-hint mt-1">' + esc(v.visit_date) +
 					(v.visit_end_date && v.visit_end_date !== v.visit_date ? " → " + esc(v.visit_end_date) : "") +
 					" · " + esc(v.purpose || "Visit") + " · " + esc(v.location_gate || "Gate TBD") + "</div>" +
 					(v.workflow_state === "Rejected" && v.rejection_reason ?
 						'<div class="vp-hint mt-1 vp-reason">Reason: ' + esc(v.rejection_reason) + "</div>" : "") +
+					(cancellable ?
+						'<div class="mt-2"><button class="vp-btn-cancel" data-vp-cancel="' + esc(v.name) + '">✕ Cancel this visit</button></div>' : "") +
 					"</div>";
 			});
 			html += "</div>";
 			reqBox.innerHTML = html;
+
+			// wire up the cancel buttons
+			reqBox.querySelectorAll("[data-vp-cancel]").forEach(function (b) {
+				b.addEventListener("click", function () {
+					cancelVisit(b.dataset.vpCancel);
+				});
+			});
 		}
 
 		renderPasses(passes);
@@ -831,6 +875,35 @@
 		window.print();
 	}
 
+	/* ---------------- cancel visit ---------------- */
+	var cancelInFlight = false;
+	function cancelVisit(reqName) {
+		if (cancelInFlight) { return; }
+		if (!reqName || !window.confirm("Cancel this visit? Any issued entry pass will be revoked and your host will be notified.")) {
+			return;
+		}
+		cancelInFlight = true;
+		api("visitor_pass_tracker.portal.cancel_visit", {
+			request: reqName,
+			phone: dashboardPhone || live.phone
+		}).then(function (res) {
+			cancelInFlight = false;
+			toast((res && res.message) || "Your visit has been cancelled.", "success");
+			// refresh the dashboard + live baseline immediately so the
+			// cancelled state shows without waiting for the next poll
+			api("visitor_pass_tracker.portal.track_visit", { phone: dashboardPhone || live.phone })
+				.then(function (tr) {
+					lastSig = dashboardSig(tr);
+					renderDashboard(tr);
+					if (live.baseline) { live.baseline = liveSnapshot(tr); }
+				})
+				.catch(function () { /* transient - next poll refreshes */ });
+		}).catch(function (err) {
+			cancelInFlight = false;
+			toast(cleanErr(err), "error");
+		});
+	}
+
 	/* ---------------- pre-register / track ---------------- */
 	function showDashboard(res, phone) {
 		$("vp-register-result").style.display = "block";
@@ -907,7 +980,12 @@
 	document.addEventListener("visibilitychange", function () {
 		if (document.hidden) {
 			if (live.timer) { clearInterval(live.timer); live.timer = null; }
+			if (scanTimer) { clearInterval(scanTimer); scanTimer = null; }
 			return;
+		}
+		if (scanPass && !scanTimer) {
+			pollScanCard(); // immediate catch-up on return to the tab
+			scanTimer = setInterval(pollScanCard, LIVE_INTERVAL_MS);
 		}
 		if (live.timer || live.stopped || !live.phone) { return; }
 		pollLive(false); // immediate catch-up on return to the tab
@@ -917,6 +995,60 @@
 			pollLive(false);
 		}, LIVE_INTERVAL_MS);
 	});
+
+	/* ---------------- QR scan experience (?pass=) ---------------- */
+	// The QR on an entry pass encodes a portal URL so a phone camera opens
+	// this page instead of raw text. When ?pass= is present, render a live
+	// pass status card (polled in the background, like the dashboard).
+	var scanPass = "";
+	var scanLastState = "";
+	try {
+		scanPass = new URLSearchParams(window.location.search || "").get("pass") || "";
+	} catch (e) { scanPass = ""; }
+
+	function renderScanCard(res) {
+		var card = $("vp-scan-card");
+		if (!res || !res.found) {
+			card.innerHTML = '<p class="vp-hint mb-0">This pass could not be found.</p>';
+			card.style.display = "block";
+			return;
+		}
+		var p = res;
+		var active = /active|approved/.test(String(p.status || "").toLowerCase());
+		var cls = active ? "" : " " + String(p.status || "").toLowerCase();
+		var html = '<div class="card vp-pass mb-0' + cls + '"><div class="card-body">' +
+			'<div class="d-flex justify-content-between align-items-center"><b>' + esc(p.name) + "</b>" +
+			statusChip(p.status) + "</div>" +
+			'<div class="vp-hint mt-2">' + esc(p.visitor_name || "Visitor") + " · " +
+			fmtDT(p.valid_from) + " → " + fmtDT(p.valid_till) + " · " + esc(p.gate || "Gate TBD") + "</div>";
+		if (active && p.qr_data_url) {
+			html += '<div class="vp-qr-box text-center mt-3"><img src="' + esc(p.qr_data_url) + '" alt="Entry pass QR">' +
+				'<div class="vp-hint mt-2">Show this screen at the gate — the QR opened this pass.</div></div>';
+		}
+		html += '<p class="vp-hint mt-3 mb-0">This page was opened by scanning your pass QR — its status updates here live.</p>' +
+			"</div></div>";
+		card.innerHTML = html;
+		card.style.display = "block";
+	}
+
+	function pollScanCard() {
+		if (!scanPass) { return; }
+		api("visitor_pass_tracker.portal.get_pass_status", { pass_number: scanPass })
+			.then(function (res) {
+				if (!res) { return; }
+				var state = res.found ? String(res.status || "") : "notfound";
+				if (state === scanLastState) { return; }
+				scanLastState = state;
+				renderScanCard(res);
+			})
+			.catch(function () { /* transient - retried on the next tick */ });
+	}
+
+	var scanTimer = null;
+	if (scanPass) {
+		pollScanCard();
+		scanTimer = setInterval(pollScanCard, LIVE_INTERVAL_MS);
+	}
 
 	/* ---------------- helpers ---------------- */
 	function cleanErr(err) {

@@ -298,6 +298,12 @@ manual desk entries are distinguishable from hardware scans.
   - **My Pass (QR)** - downloads / prints the QR badge for any pass the phone
     number verifiably owns. Private QR files are read server-side and returned
     as a data URL, so no file permissions are exposed.
+  - **Cancel My Visit** - a visitor cancels their own request from the portal
+    (ownership verified by phone, like Track My Visit). Draft requests are
+    deleted; submitted requests go through the normal cancel flow, which
+    auto-revokes any issued Entry Pass so the gate stops accepting it, and the
+    host is notified in-app + by email (best-effort). Refused with a clear
+    message for already-rejected / cancelled / completed visits.
   The page works with the standard Frappe website chrome (no login, no extra
   setup - CSRF is handled by `frappe.call`); a **Visitor Portal** shortcut was
   added to the desk workspace.
@@ -388,7 +394,14 @@ manual desk entries are distinguishable from hardware scans.
   `visitor_pass_tracker/fixtures/` (order defined in
   `hooks.py`). Re-export after UI changes: `bench --site <site> export-fixtures`.
 - QR codes are generated with `pyqrcode` (bundled with Frappe 15) as private
-  PNG files (SVG fallback if `pypng` is missing).
+  PNG files (SVG fallback if `pypng` is missing). A pass QR encodes a
+  **scannable portal URL** (`/visitor_portal?pass=PASS-...`): a phone camera
+  opens the visitor portal and shows the pass status live, while gate
+  hardware posts the scanned text back to the scan API, which resolves the
+  pass number from the URL (the legacy JSON payload format is still
+  accepted by `_resolve_entry_pass`). Passes issued **before** this change
+  keep their old JSON QR image - regenerate them once with:
+  `bench --site <sitename> execute visitor_pass_tracker.utils.regenerate_all_pass_qrs`.
 - The `Visitor` doctype uses hash naming; `Visitor Request` uses `VREQ-.YYYY.-`
   and `Entry Pass` uses `PASS-.YYYY.-`.
 - Requires ERPNext 15 (Employee / Department / Address doctypes).

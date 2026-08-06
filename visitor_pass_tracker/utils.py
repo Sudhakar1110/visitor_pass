@@ -1,5 +1,4 @@
 import base64
-import json
 from io import BytesIO
 
 import frappe
@@ -657,9 +656,14 @@ def send_pass_notifications(entry_pass, sent=None, skipped=None):
 def attach_qr_code(entry_pass):
 	"""Generate a QR image for the Entry Pass and store it in `qr_code`.
 
-	The QR payload is a JSON string the gate scanner hardware can POST straight
-	back to the scan API. PNG is preferred (pyqrcode + pypng, both bundled with
-	Frappe 15 / ERPNext 15); falls back to SVG if pypng is unavailable.
+	The QR encodes a **scannable portal URL** (`/visitor_portal?pass=PASS-...`)
+	so a phone camera opens the pass status page on the visitor portal instead
+	of showing raw text. Gate hardware posts the scanned text back to the scan
+	API, which resolves the pass number from the URL (see `_resolve_entry_pass`
+	- the legacy JSON payload format is still accepted there).
+
+	PNG is preferred (pyqrcode + pypng, both bundled with Frappe 15 /
+	ERPNext 15); falls back to SVG if pypng is unavailable.
 	"""
 	try:
 		import pyqrcode
@@ -670,14 +674,16 @@ def attach_qr_code(entry_pass):
 		)
 		return
 
-	payload = json.dumps(
-		{
-			"type": "entry_pass",
-			"entry_pass": entry_pass.name,
-			"visitor": entry_pass.visitor,
-			"valid_till": str(entry_pass.valid_till),
-		}
-	)
+	# Build the site URL for the portal. During a normal (workflow / desk)
+	# call get_url() resolves the real request host; in background contexts it
+	# falls back to host_name from site_config.json (or localhost as a last
+	# resort - a misconfigured host only makes the QR open the wrong URL, it
+	# never breaks scanning, which resolves the pass from the query string).
+	try:
+		base = frappe.utils.get_url("/visitor_portal")
+	except Exception:
+		base = (frappe.conf.get("host_name") or "http://localhost:8000") + "/visitor_portal"
+	payload = "{0}?pass={1}".format(base, entry_pass.name)
 	qr = pyqrcode.create(payload)
 
 	buffer = BytesIO()
@@ -705,6 +711,43 @@ def attach_qr_code(entry_pass):
 		df="qr_code",
 	)
 	frappe.db.set_value("Entry Pass", entry_pass.name, "qr_code", file_doc.file_url)
+
+
+def regenerate_all_pass_qrs():
+	"""Regenerate the QR image for every Entry Pass that has one stored.
+
+	The QR format changed from a raw JSON payload (gate-hardware only, shows
+	as raw text on phone cameras) to a scannable portal URL. Existing passes
+	keep their old QR image until regenerated - run this once after upgrading
+	so already-issued passes scan nicely on phones too:
+
+	    bench --site <sitename> execute visitor_pass_tracker.utils.regenerate_all_pass_qrs
+
+	Returns the number of passes updated. Never raises - failures are logged
+	and the loop continues.
+	"""
+	names = frappe.get_all(
+		"Entry Pass",
+		filters={"qr_code": ["is", "set"]},
+		pluck="name",
+		limit_page_length=10000,
+		ignore_permissions=True,
+	)
+	updated = 0
+	for name in names:
+		try:
+			doc = frappe.get_doc("Entry Pass", name)
+			attach_qr_code(doc)
+			updated += 1
+		except Exception:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: QR regeneration failed"),
+				message="Entry Pass {0}\n{1}".format(name, frappe.get_traceback()),
+			)
+	print(
+		"Regenerated QR images for {0} of {1} Entry Passes".format(updated, len(names))
+	)
+	return updated
 
 
 # ---------------------------------------------------------------------------
@@ -968,7 +1011,13 @@ def check_installation():
 	try:
 		guest_apis_ok = all(
 			callable(frappe.get_attr("visitor_pass_tracker.portal.{0}".format(name)))
-			for name in ["register_visitor", "track_visit", "get_pass_qr"]
+			for name in [
+				"register_visitor",
+				"track_visit",
+				"get_pass_qr",
+				"get_pass_status",
+				"cancel_visit",
+			]
 		)
 	except Exception:
 		guest_apis_ok = False

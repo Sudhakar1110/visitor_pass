@@ -8,7 +8,8 @@ from visitor_pass_tracker.utils import is_security_user
 
 @frappe.whitelist()
 def resolve_pass(entry_pass=None):
-	"""Resolve an Entry Pass (name or full QR payload) for the Gate Scanner page.
+	"""Resolve an Entry Pass (name, scanned QR URL or legacy JSON payload) for
+	the Gate Scanner page.
 
 	Returns the pass details so the console can show who is scanning in, plus
 	enough context for a security decision before calling submit_scan / etc.

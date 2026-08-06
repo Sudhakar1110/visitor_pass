@@ -74,7 +74,8 @@ def submit_scan(
 	it as the `token` parameter - requests without the matching token are rejected.
 
 	`gate` may be the Gate name or the Gate's device_id.
-	`entry_pass` may be the Entry Pass name or the full QR payload (JSON string).
+	`entry_pass` may be the Entry Pass name or the scanned QR content (a
+	scannable portal URL; the legacy JSON payload is also accepted).
 	"""
 	_validate_api_token(token)
 
@@ -231,13 +232,28 @@ def _resolve_entry_pass(entry_pass):
 		return None
 	if frappe.db.exists("Entry Pass", entry_pass):
 		return entry_pass
-	# scanners may post the whole QR payload back (it is a JSON string)
+	# legacy format: scanners may post the whole QR payload back (a JSON string)
 	try:
 		payload = frappe.parse_json(entry_pass)
 		if isinstance(payload, dict) and payload.get("entry_pass"):
 			name = payload["entry_pass"]
 			if frappe.db.exists("Entry Pass", name):
 				return name
+	except Exception:
+		pass
+	# current format: the QR encodes a scannable portal URL
+	# (/visitor_portal?pass=PASS-...) so phone cameras open the pass page
+	# instead of raw text - gate hardware posts the URL back as-is
+	try:
+		from urllib.parse import parse_qs, urlparse
+
+		parsed = urlparse(entry_pass)
+		if parsed.scheme in ("http", "https") or parsed.path == "/visitor_portal":
+			names = parse_qs(parsed.query).get("pass")
+			if names:
+				name = names[0]
+				if frappe.db.exists("Entry Pass", name):
+					return name
 	except Exception:
 		pass
 	return None

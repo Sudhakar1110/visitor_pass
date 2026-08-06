@@ -11,6 +11,13 @@ website - keep the surface minimal and never leak data across visitors:
 - `get_pass_qr`       - returns the stored QR image of a pass the caller
   verifiably owns (private files are read server-side and returned as a data
   URL, so no file-permission exposure).
+- `get_pass_status`    - minimal public status view backing the QR scan
+  experience: the QR on a pass encodes a portal URL (?pass=PASS-...), so a
+  phone camera opens the pass page instead of raw text. Returns only what
+  the visitor needs at the gate (status, window, gate, name, QR image).
+- `cancel_visit`      - a visitor cancels their OWN visit request by phone;
+  submitted requests are cancelled through the normal document flow (which
+  revokes any issued Entry Pass) and the host is notified.
 """
 
 import base64
@@ -43,6 +50,7 @@ def _pass_payload(entry_pass, include_qr=False):
 		"valid_till": entry_pass.valid_till,
 		"gate": entry_pass.location_gate,
 		"visitor_name": entry_pass.visitor_name,
+		"visitor_request": entry_pass.visitor_request,
 		"has_qr": bool(entry_pass.qr_code),
 	}
 	if include_qr:
@@ -232,6 +240,7 @@ def track_visit(phone=None, pass_number=None):
 		filters={"visitor": visitor.name},
 		fields=[
 			"name",
+			"docstatus",
 			"workflow_state",
 			"visit_date",
 			"visit_end_date",
@@ -246,7 +255,7 @@ def track_visit(phone=None, pass_number=None):
 	passes = frappe.get_all(
 		"Entry Pass",
 		filters={"visitor": visitor.name},
-		fields=["name", "status", "valid_from", "valid_till", "location_gate", "visitor_name", "qr_code"],
+		fields=["name", "status", "valid_from", "valid_till", "location_gate", "visitor_name", "visitor_request", "qr_code"],
 		order_by="valid_from desc",
 		limit_page_length=20,
 	)
@@ -273,3 +282,143 @@ def get_pass_qr(pass_number=None, phone=None):
 	if not payload["qr_data_url"]:
 		frappe.throw(_("QR code is not available for this pass."))
 	return payload
+
+
+@frappe.whitelist(allow_guest=True)
+def get_pass_status(pass_number=None):
+	"""Public, minimal status view for a QR-scanned pass URL.
+
+	Backs the phone-scan experience: the QR on an Entry Pass now encodes a
+	portal URL (`/visitor_portal?pass=PASS-...`), and opening it on a phone
+	renders this readable status instead of raw text. Returns only the
+	non-sensitive fields the visitor needs at the gate (status, validity
+	window, gate, visitor name, QR image) - never phone numbers, emails,
+	hosts or other internal data.
+
+	The QR (and therefore the URL) is private - the pass file is
+	permission-protected and the link only reaches the visitor and host -
+	so this endpoint exposes no more than the badge print format already
+	carries in public.
+	"""
+	pass_number = (pass_number or "").strip()
+	if not pass_number or not frappe.db.exists("Entry Pass", pass_number):
+		return {"found": False}
+	entry_pass = frappe.get_doc("Entry Pass", pass_number)
+	payload = _pass_payload(entry_pass, include_qr=True)
+	payload["found"] = True
+	return payload
+
+
+@frappe.whitelist(allow_guest=True)
+def cancel_visit(request=None, phone=None):
+	"""Cancel a visit request from the portal (self-service).
+
+	Ownership is verified exactly like `track_visit` - the phone number must
+	resolve to the Visitor that owns the request, so a caller can never cancel
+	someone else's visit.
+
+	- Draft requests are simply deleted (nothing was submitted yet).
+	- Submitted requests go through the normal `doc.cancel()` flow, whose
+	  `on_cancel` revokes any issued Entry Pass so the gate stops accepting it.
+	- The host (host user, or the host Employee's user) is notified in-app
+	  + email (best-effort - failures are logged, never raised).
+	- Already rejected / cancelled / completed requests are refused with a
+	  clear message instead of silently failing.
+	"""
+	phone = _normalize_phone(phone)
+	if not request:
+		frappe.throw(_("Request is required."))
+	if not phone:
+		frappe.throw(_("Please enter the phone number you registered with."))
+
+	visitor = _public_visitor(phone)
+	if not visitor:
+		frappe.throw(_("No registration found for this phone number."))
+
+	if not frappe.db.exists("Visitor Request", request):
+		frappe.throw(_("Request not found."))
+
+	req = frappe.get_doc("Visitor Request", request)
+	# ownership: the request must belong to the Visitor resolved from the phone
+	if not req.visitor or req.visitor != visitor.name:
+		frappe.throw(_("Request not found for this phone number."))
+
+	if req.docstatus == 2:
+		frappe.throw(_("This request has already been cancelled."))
+	if req.workflow_state == "Rejected":
+		frappe.throw(_("This request was already rejected and cannot be cancelled."))
+
+	# an already-completed visit (pass Used) cannot be cancelled
+	pass_name = frappe.db.get_value("Entry Pass", {"visitor_request": request}, "name")
+	if pass_name:
+		pass_status = frappe.db.get_value("Entry Pass", pass_name, "status")
+		if pass_status == "Used":
+			frappe.throw(_("This visit is already completed and cannot be cancelled."))
+
+	if req.docstatus == 0:
+		# never submitted - nothing to revoke, just remove the draft
+		frappe.delete_doc("Visitor Request", request, ignore_permissions=True, force=1)
+		frappe.db.commit()
+		_notify_host_of_cancellation(req)
+		return {
+			"status": "cancelled",
+			"request": request,
+			"message": _("Your visit request has been cancelled."),
+		}
+
+	# submitted request -> cancel via the normal document flow (revokes the pass)
+	req.flags.ignore_permissions = True
+	req.cancel()
+	frappe.db.commit()
+	_notify_host_of_cancellation(req)
+
+	return {
+		"status": "cancelled",
+		"request": request,
+		"message": _("Your visit has been cancelled and any issued pass has been revoked."),
+	}
+
+
+def _notify_host_of_cancellation(req):
+	"""Notify the host that their visitor cancelled (in-app + email, best-effort)."""
+	host_user = req.host_user
+	if not host_user and req.host:
+		host_user = frappe.db.get_value("Employee", req.host, "user_id")
+	if not host_user:
+		return
+	try:
+		subject = _("Visit cancelled: {0} ({1})").format(
+			req.visitor_name or req.visitor or "-", req.name
+		)
+		message = _(
+			"<p>The visitor <b>{0}</b> has cancelled their visit request "
+			"<b>{1}</b>.</p>"
+			"<p>Any entry pass issued for this visit has been revoked.</p>"
+		).format(req.visitor_name or req.visitor or "-", req.name)
+
+		frappe.get_doc(
+			{
+				"doctype": "Notification Log",
+				"for_user": host_user,
+				"from_user": frappe.session.user or "Administrator",
+				"subject": subject,
+				"document_type": "Visitor Request",
+				"document_name": req.name,
+				"type": "Alert",
+			}
+		).insert(ignore_permissions=True)
+
+		email = frappe.db.get_value("User", host_user, "email")
+		if email:
+			frappe.sendmail(
+				recipients=email,
+				subject=subject,
+				message=message,
+				reference_doctype="Visitor Request",
+				reference_name=req.name,
+			)
+	except Exception:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: cancellation notification failed"),
+			message=frappe.get_traceback(),
+		)
