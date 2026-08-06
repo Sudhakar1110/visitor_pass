@@ -255,6 +255,31 @@
 
 	.vp-cancel-hint { font-size: 0.72rem; color: var(--vp-muted); margin-top: 0.3rem; }
 
+	.vp-btn-share-wa {
+		display: inline-block;
+		border: 1px solid rgba(37, 211, 102, 0.4);
+		border-radius: 9px;
+		padding: 0.34rem 0.8rem;
+		font-size: 0.78rem; font-weight: 700;
+		color: #4ade80;
+		background: rgba(37, 211, 102, 0.08);
+		transition: background 0.2s, border-color 0.2s, transform 0.18s;
+		cursor: pointer;
+	}
+	.vp-btn-share-wa:hover { background: rgba(37, 211, 102, 0.16); border-color: #25d366; transform: translateY(-1px); }
+	.vp-btn-share-mail {
+		display: inline-block;
+		border: 1px solid rgba(59, 130, 246, 0.4);
+		border-radius: 9px;
+		padding: 0.34rem 0.8rem;
+		font-size: 0.78rem; font-weight: 700;
+		color: #60a5fa;
+		background: rgba(59, 130, 246, 0.08);
+		transition: background 0.2s, border-color 0.2s, transform 0.18s;
+		cursor: pointer;
+	}
+	.vp-btn-share-mail:hover { background: rgba(59, 130, 246, 0.16); border-color: #3b82f6; transform: translateY(-1px); }
+
 	.vp-register-result {
 		display: none;
 		margin-top: 1rem;
@@ -815,9 +840,17 @@
 					'<div class="mt-2">' +
 					'<button class="vp-btn-ghost" data-qr-dl="' + esc(p.name) + '">⬇ Download</button> ' +
 					'<button class="vp-btn-ghost" data-qr-print="' + esc(p.name) + '">🖨 Print</button>' +
+					"</div>" +
+					'<div class="mt-2">' +
+					'<button class="vp-btn-share-wa" data-vp-wa="' + esc(p.name) + '">💬 WhatsApp</button> ' +
+					'<button class="vp-btn-share-mail" data-vp-mail="' + esc(p.name) + '">✉️ Email</button>' +
 					"</div></div>";
 			} else if (active) {
-				html += '<p class="vp-hint mt-2 mb-0">Pass is active — the QR will arrive by email / SMS.</p>';
+				html += '<p class="vp-hint mt-2 mb-0">Pass is active — the QR will arrive by email / SMS.</p>' +
+					'<div class="mt-2">' +
+					'<button class="vp-btn-share-wa" data-vp-wa="' + esc(p.name) + '">💬 WhatsApp</button> ' +
+					'<button class="vp-btn-share-mail" data-vp-mail="' + esc(p.name) + '">✉️ Email</button>' +
+					"</div>";
 			}
 			html += "</div></div>";
 		});
@@ -859,6 +892,7 @@
 				});
 			});
 		});
+		wireShareButtons(box);
 	}
 
 	function printBadge(p) {
@@ -873,6 +907,56 @@
 			'<div style="font-size:10px;color:#888;margin-top:8px;">Present this pass at the gate. Security scans to verify.</div>' +
 			"</div>";
 		window.print();
+	}
+
+	/* ---------------- share pass (WhatsApp / Email) ---------------- */
+	// The pass QR encodes /visitor_portal?pass=PASS-... so the shared link opens
+	// the live pass page on any phone - no login needed, exactly like the QR.
+	function passLink(pname) {
+		return window.location.origin + "/visitor_portal?pass=" + encodeURIComponent(pname);
+	}
+
+	function shareMessage(p) {
+		p = p || {};
+		var lines = [
+			"Here is my entry pass:",
+			"Pass: " + (p.name || ""),
+			p.visitor_name ? "Name: " + p.visitor_name : "",
+			p.gate ? "Gate: " + p.gate : "",
+			"Valid: " + fmtDT(p.valid_from) + " \u2192 " + fmtDT(p.valid_till),
+			"Tap to view it live: " + passLink(p.name || "")
+		];
+		return lines.filter(Boolean).join("\n");
+	}
+
+	function passForShare(pname) {
+		// never fall back to the scan card's pass unless it is the same pass -
+		// otherwise a share could silently send the wrong pass's details
+		return passByName[pname] || (scanPassData && scanPassData.name === pname ? scanPassData : {});
+	}
+
+	function wireShareButtons(container) {
+		if (!container) { return; }
+		container.querySelectorAll("[data-vp-wa]").forEach(function (b) {
+			b.addEventListener("click", function () { shareWhatsApp(b.dataset.vpWa); });
+		});
+		container.querySelectorAll("[data-vp-mail]").forEach(function (b) {
+			b.addEventListener("click", function () { shareEmail(b.dataset.vpMail); });
+		});
+	}
+
+	function shareWhatsApp(pname) {
+		var p = passForShare(pname);
+		if (!p.name) { toast("Pass details are not loaded yet - try again in a moment.", "error"); return; }
+		window.open("https://wa.me/?text=" + encodeURIComponent(shareMessage(p)), "_blank", "noopener");
+	}
+
+	function shareEmail(pname) {
+		var p = passForShare(pname);
+		if (!p.name) { toast("Pass details are not loaded yet - try again in a moment.", "error"); return; }
+		var subject = "My entry pass " + p.name + (p.visitor_name ? " \u2014 " + p.visitor_name : "");
+		window.location.href = "mailto:?subject=" + encodeURIComponent(subject) +
+			"&body=" + encodeURIComponent(shareMessage(p));
 	}
 
 	/* ---------------- cancel visit ---------------- */
@@ -1001,6 +1085,7 @@
 	// this page instead of raw text. When ?pass= is present, render a live
 	// pass status card (polled in the background, like the dashboard).
 	var scanPass = "";
+	var scanPassData = null; // current pass object for the scan card share buttons
 	var scanLastState = "";
 	try {
 		scanPass = new URLSearchParams(window.location.search || "").get("pass") || "";
@@ -1014,6 +1099,7 @@
 			return;
 		}
 		var p = res;
+		scanPassData = p;
 		var active = /active|approved/.test(String(p.status || "").toLowerCase());
 		var cls = active ? "" : " " + String(p.status || "").toLowerCase();
 		var html = '<div class="card vp-pass mb-0' + cls + '"><div class="card-body">' +
@@ -1023,12 +1109,18 @@
 			fmtDT(p.valid_from) + " → " + fmtDT(p.valid_till) + " · " + esc(p.gate || "Gate TBD") + "</div>";
 		if (active && p.qr_data_url) {
 			html += '<div class="vp-qr-box text-center mt-3"><img src="' + esc(p.qr_data_url) + '" alt="Entry pass QR">' +
-				'<div class="vp-hint mt-2">Show this screen at the gate — the QR opened this pass.</div></div>';
+				'<div class="vp-hint mt-2">Show this screen at the gate — the QR opened this pass.</div>' +
+				'<div class="mt-2">' +
+				'<button class="vp-btn-share-wa" data-vp-wa="' + esc(p.name) + '">💬 WhatsApp</button> ' +
+				'<button class="vp-btn-share-mail" data-vp-mail="' + esc(p.name) + '">✉️ Email</button>' +
+				"</div></div>";
 		}
 		html += '<p class="vp-hint mt-3 mb-0">This page was opened by scanning your pass QR — its status updates here live.</p>' +
 			"</div></div>";
 		card.innerHTML = html;
 		card.style.display = "block";
+
+		wireShareButtons(card);
 	}
 
 	function pollScanCard() {

@@ -304,6 +304,12 @@ manual desk entries are distinguishable from hardware scans.
     auto-revokes any issued Entry Pass so the gate stops accepting it, and the
     host is notified in-app + by email (best-effort). Refused with a clear
     message for already-rejected / cancelled / completed visits.
+  - **Share pass (WhatsApp / Email)** - every active pass card (the dashboard's
+    "My Entry Passes" and the QR-scan view) has **WhatsApp** and **Email**
+    share buttons that send the pass number, visitor name, gate, validity
+    window and the live pass link (`/visitor_portal?pass=PASS-...`) in one tap
+    - the receiver opens the same live pass page a QR scan shows, no login
+    needed.
   The page works with the standard Frappe website chrome (no login, no extra
   setup - CSRF is handled by `frappe.call`); a **Visitor Portal** shortcut was
   added to the desk workspace.
