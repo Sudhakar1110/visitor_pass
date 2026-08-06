@@ -132,6 +132,7 @@ def submit_scan(
 	# Notification fixture, plus an SMS to the host's mobile (best-effort)
 	if log.is_authorized and scan_type == "Entry" and pass_name:
 		_notify_host_sms(log)
+		_notify_vip_arrival(log)
 
 	frappe.db.commit()
 
@@ -170,6 +171,48 @@ def _notify_host_sms(log):
 			frappe.utils.format_datetime(log.scan_time),
 		),
 	)
+
+
+def _notify_vip_arrival(log):
+	"""VIP visitors get an instant alert (Security role + host, in-app/email +
+	SMS) the moment they scan in. Best-effort - never raises."""
+	if not log.visitor or not frappe.db.exists("Visitor", log.visitor):
+		return
+	if not frappe.db.get_value("Visitor", log.visitor, "is_vip"):
+		return
+	try:
+		from visitor_pass_tracker.utils import _notify_users, _role_users, _send_sms
+
+		subject = _("VIP ARRIVED: {0}").format(log.visitor_name or log.visitor)
+		message = _(
+			"<p>VIP visitor <b>{0}</b> ({1}) has arrived at gate <b>{2}</b> "
+			"at <b>{3}</b>.</p><p>Escort and reception please note.</p>"
+		).format(
+			log.visitor_name or "-",
+			log.entry_pass or "-",
+			log.gate,
+			frappe.utils.format_datetime(log.scan_time),
+		)
+		_notify_users(
+			_role_users(["Security Officer"]), subject, message, "Gate Log Entry", log.name
+		)
+		if log.host_user:
+			_notify_users({log.host_user}, subject, message, "Gate Log Entry", log.name)
+			employee_phone = frappe.db.get_value(
+				"Employee", {"user_id": log.host_user}, "cell_number"
+			)
+			if employee_phone:
+				_send_sms(
+					employee_phone,
+					_("VIP visitor {0} has arrived at gate {1}.").format(
+						log.visitor_name or "-", log.gate
+					),
+				)
+	except Exception:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: VIP arrival alert failed"),
+			message=frappe.get_traceback(),
+		)
 
 
 def _resolve_gate(gate):

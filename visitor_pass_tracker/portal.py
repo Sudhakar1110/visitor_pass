@@ -18,15 +18,18 @@ import base64
 import frappe
 from frappe import _
 
-from .utils import _normalize_phone
+from .utils import _merged_filter, _normalize_phone
 
 
 def _public_visitor(phone):
-	"""Visitor master matching the given phone digits (or None)."""
+	"""Visitor master matching the given phone digits (or None). Merged-away
+	duplicates (nightly merge job) are skipped."""
 	phone = _normalize_phone(phone)
 	if not phone:
 		return None
-	name = frappe.db.get_value("Visitor", {"phone": phone}, "name")
+	name = frappe.db.get_value(
+		"Visitor", {"phone": phone, **_merged_filter()}, "name"
+	)
 	return frappe.get_cached_doc("Visitor", name) if name else None
 
 
@@ -108,11 +111,15 @@ def register_visitor(
 		frappe.throw(_("Please provide a valid 10-digit phone number."))
 
 	# deduplicate on the phone index first, then fall back to email
+	# (merged-away duplicates are skipped)
+	merged = _merged_filter()
 	existing = None
 	if phone:
-		existing = frappe.db.get_value("Visitor", {"phone": phone}, "name")
+		existing = frappe.db.get_value("Visitor", {"phone": phone, **merged}, "name")
 	if not existing and email:
-		existing = frappe.db.get_value("Visitor", {"email": email}, "name")
+		existing = frappe.db.get_value(
+			"Visitor", {"email": email, **merged}, "name"
+		)
 
 	if existing:
 		doc = frappe.get_doc("Visitor", existing)

@@ -4,7 +4,7 @@ from io import BytesIO
 
 import frappe
 from frappe import _
-from frappe.utils import add_to_date, get_datetime, now_datetime
+from frappe.utils import add_to_date, get_datetime, getdate, now_datetime
 
 # ---------------------------------------------------------------------------
 # Scheduler event (every 15 minutes) - Pass expiry alert + auto-expiry
@@ -253,6 +253,19 @@ def auto_revoke_overstays():
 
 
 # ---------------------------------------------------------------------------
+# Duplicate-merge awareness - merged Visitors (marked via the hidden
+# `merged_into` link by the nightly merge job) are excluded from lookups.
+# Guarded by frappe.db.has_column so pre-migrate sites never error.
+# ---------------------------------------------------------------------------
+
+
+def _merged_filter():
+	if frappe.db.has_column("Visitor", "merged_into"):
+		return {"merged_into": ["is", "not set"]}
+	return {}
+
+
+# ---------------------------------------------------------------------------
 # Blacklist auto-check
 # ---------------------------------------------------------------------------
 
@@ -320,11 +333,13 @@ def find_matching_visitors(phone=None, id_proof_number=None):
 
 	matches = {}
 
+	merged = _merged_filter()
+
 	# 1) exact phone match - uses the phone index, returns immediately
 	if phone:
 		for v in frappe.get_all(
 			"Visitor",
-			filters={"phone": phone},
+			filters={"phone": phone, **merged},
 			fields=VISITOR_MATCH_FIELDS,
 			order_by="modified desc",
 			limit_page_length=20,
@@ -336,7 +351,7 @@ def find_matching_visitors(phone=None, id_proof_number=None):
 	if phone and not matches:
 		for v in frappe.get_all(
 			"Visitor",
-			filters={"phone": ["like", f"%{phone}"]},
+			filters={"phone": ["like", f"%{phone}"], **merged},
 			fields=VISITOR_MATCH_FIELDS,
 			order_by="modified desc",
 			limit_page_length=200,
@@ -348,7 +363,7 @@ def find_matching_visitors(phone=None, id_proof_number=None):
 	if id_proof:
 		for v in frappe.get_all(
 			"Visitor",
-			filters={"id_proof_number": ["like", f"%{id_proof}%"]},
+			filters={"id_proof_number": ["like", f"%{id_proof}%"], **merged},
 			fields=VISITOR_MATCH_FIELDS,
 			order_by="modified desc",
 			limit_page_length=200,
@@ -458,7 +473,25 @@ def send_pass_notifications(entry_pass):
 	)
 	if qr_code:
 		message += '<p><img src="{0}" style="width:160px;"></p>'.format(qr_code)
-	attachments = [{"file_url": qr_code}] if qr_code else None
+
+	# attachments: the QR image + a calendar invite (.ics) so the visitor and
+	# host can add the visit window to their calendars in one tap
+	attachments = [{"file_url": qr_code}] if qr_code else []
+	attachments.append(
+		{
+			"fname": "{0}.ics".format(entry_pass.name),
+			"fcontent": _build_ics(
+				entry_pass.name,
+				entry_pass.valid_from,
+				entry_pass.valid_till,
+				_("Visit: {0}").format(entry_pass.visitor_name or "Visitor"),
+				entry_pass.location_gate or "",
+				_("Entry Pass {0} | Visitor {1}").format(
+					entry_pass.name, entry_pass.visitor_name or ""
+				),
+			),
+		}
+	)
 
 	# host - email + in-app notification
 	host_user = entry_pass.host_user
@@ -784,14 +817,23 @@ def check_installation():
 		mark("report:{0}".format(name), frappe.db.exists("Report", name))
 	mark("page:gate-scanner", frappe.db.exists("Page", "gate-scanner"))
 
-	# 7b) scheduler cron registered in hooks
+	# 7b) scheduler crons registered in hooks
+	expected_crons = {
+		"*/15 * * * *": ["visitor_pass_tracker.utils.run_pass_expiry_checks"],
+		"0 * * * *": ["visitor_pass_tracker.utils.run_hourly_automations"],
+		"0 9 * * *": ["visitor_pass_tracker.utils.send_day_before_visit_reminders"],
+		"0 17 * * *": ["visitor_pass_tracker.utils.send_expected_tomorrow_digest"],
+		"0 19 * * *": ["visitor_pass_tracker.utils.send_end_of_day_reconciliation_digest"],
+		"0 2 * * *": ["visitor_pass_tracker.utils.merge_duplicate_visitors"],
+	}
 	hooks_cron = frappe.get_hooks("scheduler_events") or {}
-	cron = (hooks_cron.get("cron") or {}).get("*/15 * * * *") or []
-	mark(
-		"scheduler:cron */15",
-		"visitor_pass_tracker.utils.run_pass_expiry_checks" in cron,
-		", ".join(cron) or "none",
-	)
+	registered_crons = hooks_cron.get("cron") or {}
+	for cron_expr, funcs in expected_crons.items():
+		mark(
+			"scheduler:cron {0}".format(cron_expr),
+			all(f in (registered_crons.get(cron_expr) or []) for f in funcs),
+			", ".join(registered_crons.get(cron_expr) or []) or "none",
+		)
 
 	# 8) public Visitor Portal (www page + guest APIs - no DB records)
 	import os
@@ -930,3 +972,763 @@ def get_pass_scope_condition(alias="ep", user=None):
 	if not alternatives:
 		return "1=0", {}
 	return "(" + " OR ".join(alternatives) + ")", params
+
+
+# ---------------------------------------------------------------------------
+# Automations (scheduler) - approval reminders & escalation, stale-request
+# auto-rejection, repeat-offender auto-blacklisting, day-before visit
+# reminders, daily digests (expected-tomorrow + end-of-day reconciliation)
+# and nightly duplicate-visitor merging.
+#
+# Every threshold is configurable via site_config.json:
+#   visitor_pass_reminder_hours                  (default 4)
+#   visitor_pass_escalation_hours                (default 24)
+#   visitor_pass_stale_days                      (default 3)
+#   visitor_pass_trusted_visit_threshold         (default 3)
+#   visitor_pass_overstay_blacklist_threshold    (default 2)
+#   visitor_pass_unauthorized_blacklist_threshold(default 3)
+#   visitor_pass_digest_roles                    (default ["Security Officer", "Reception"])
+#   visitor_pass_recon_digest_roles              (default ["Security Officer", "System Manager"])
+# ---------------------------------------------------------------------------
+
+PENDING_WORKFLOW_STATES = [
+	"Pending Host Approval",
+	"Pending Department Approval",
+	"Pending Security Approval",
+]
+
+
+def _config_int(key, default):
+	value = frappe.conf.get(key)
+	try:
+		return int(value) if value not in (None, "") else default
+	except (TypeError, ValueError):
+		return default
+
+
+def _config_list(key, default):
+	value = frappe.conf.get(key)
+	if not value:
+		return list(default)
+	if isinstance(value, str):
+		return [item.strip() for item in value.split(",") if item.strip()]
+	return list(value)
+
+
+def _role_users(roles):
+	"""Enabled user names holding any of the given roles."""
+	if isinstance(roles, str):
+		roles = [roles]
+	users = set()
+	for role in roles:
+		users.update(frappe.get_all("Has Role", filters={"role": role}, pluck="parent"))
+	return {u for u in users if u and frappe.db.get_value("User", u, "enabled")}
+
+
+def _role_emails(roles):
+	"""Enabled user emails for the given roles (for digests / bulk emails)."""
+	return {
+		e
+		for e in (frappe.db.get_value("User", u, "email") for u in _role_users(roles))
+		if e
+	}
+
+
+def _notify_users(users, subject, message, reference_doctype=None, reference_name=None):
+	"""In-app Notification Log + Email to each user. Never raises - failures are
+	logged so one bad address cannot stop the rest of the job."""
+	for user in users:
+		try:
+			email = frappe.db.get_value("User", user, "email")
+			frappe.get_doc(
+				{
+					"doctype": "Notification Log",
+					"for_user": user,
+					"from_user": "Administrator",
+					"subject": subject,
+					"document_type": reference_doctype,
+					"document_name": reference_name,
+					"type": "Alert",
+				}
+			).insert(ignore_permissions=True)
+			if email:
+				frappe.sendmail(
+					recipients=email,
+					subject=subject,
+					message=message,
+					reference_doctype=reference_doctype,
+					reference_name=reference_name,
+				)
+		except Exception:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: automation notification failed"),
+				message=frappe.get_traceback(),
+			)
+
+
+def run_hourly_automations():
+	"""Hourly scheduler job: approval reminders + escalation, stale-request
+	auto-rejection and repeat-offender auto-blacklisting."""
+	_approval_reminders_and_escalation()
+	_auto_reject_stale_requests()
+	_auto_blacklist_repeat_offenders()
+
+
+def _approvers_for(req):
+	"""Users who can act on a request in its current workflow state."""
+	if req.workflow_state == "Pending Host Approval":
+		host_user = req.host_user
+		if not host_user and req.host:
+			host_user = frappe.db.get_value("Employee", req.host, "user_id")
+		return {host_user} if host_user else set()
+	if req.workflow_state == "Pending Department Approval":
+		if req.department:
+			head = frappe.db.get_value("Department", req.department, "head_of_department")
+			if head:
+				user = frappe.db.get_value("Employee", head, "user_id")
+				if user:
+					return {user}
+		return _role_users(["Department Head"])
+	if req.workflow_state == "Pending Security Approval":
+		return _role_users(["Security Officer"])
+	return set()
+
+
+def _approval_reminders_and_escalation():
+	"""Requests stuck in a pending state:
+	- after `visitor_pass_reminder_hours` (default 4h): remind the approver
+	- after `visitor_pass_escalation_hours` (default 24h): notify System Manager
+	Deduplicated via the hidden approval_reminder_sent / approval_escalated flags.
+	"""
+	reminder_hours = _config_int("visitor_pass_reminder_hours", 4)
+	escalation_hours = _config_int("visitor_pass_escalation_hours", 24)
+	if reminder_hours <= 0:
+		return
+	now = now_datetime()
+	reminder_cutoff = add_to_date(now, hours=-reminder_hours)
+	escalation_cutoff = add_to_date(now, hours=-escalation_hours)
+	# requests already past the stale-reject cutoff will be auto-rejected -
+	# don't waste reminder/escalation emails on them
+	stale_days = _config_int("visitor_pass_stale_days", 3)
+	stale_cutoff = add_to_date(now, days=-stale_days) if stale_days > 0 else None
+
+	requests = frappe.get_all(
+		"Visitor Request",
+		filters={"docstatus": 1, "workflow_state": ["in", PENDING_WORKFLOW_STATES]},
+		fields=[
+			"name",
+			"workflow_state",
+			"modified",
+			"visitor_name",
+			"visit_date",
+			"host",
+			"host_user",
+			"department",
+			"approval_reminder_sent",
+			"approval_escalated",
+		],
+		ignore_permissions=True,
+	)
+
+	for req in requests:
+		# skip requests that are about to be auto-rejected as stale
+		if stale_cutoff and req.modified and req.modified <= stale_cutoff:
+			continue
+		try:
+			if (
+				req.modified
+				and req.modified <= reminder_cutoff
+				and not req.approval_reminder_sent
+			):
+				approvers = _approvers_for(req)
+				subject = _("Reminder: Visitor Request {0} awaiting approval").format(req.name)
+				message = _(
+					"<p>Visitor Request <b>{0}</b> for <b>{1}</b> ({2}) is still "
+					"<b>{3}</b> and has been waiting for over {4} hour(s).</p>"
+					"<p>Please open the request and approve or reject it.</p>"
+				).format(
+					req.name,
+					req.visitor_name or "-",
+					req.visit_date,
+					req.workflow_state,
+					reminder_hours,
+				)
+				_notify_users(approvers, subject, message, "Visitor Request", req.name)
+				frappe.db.set_value(
+					"Visitor Request", req.name, "approval_reminder_sent", 1
+				)
+
+			if (
+				req.modified
+				and req.modified <= escalation_cutoff
+				and not req.approval_escalated
+			):
+				managers = _role_users(["System Manager"])
+				subject = _("Escalation: Visitor Request {0} is blocked").format(req.name)
+				message = _(
+					"<p>Visitor Request <b>{0}</b> for <b>{1}</b> has been <b>{2}</b> "
+					"for over {3} hour(s) with no action.</p>"
+					"<p>It needs attention - please follow up with the approver.</p>"
+				).format(
+					req.name,
+					req.visitor_name or "-",
+					req.workflow_state,
+					escalation_hours,
+				)
+				_notify_users(managers, subject, message, "Visitor Request", req.name)
+				frappe.db.set_value(
+					"Visitor Request", req.name, "approval_escalated", 1
+				)
+		except Exception:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: approval automation failed"),
+				message=frappe.get_traceback(),
+			)
+
+
+def _auto_reject_stale_requests():
+	"""Auto-reject requests still pending after `visitor_pass_stale_days`
+	(default 3). The host gets the standard rejection notification."""
+	from frappe.model.workflow import apply_workflow
+
+	stale_days = _config_int("visitor_pass_stale_days", 3)
+	if stale_days <= 0:
+		return
+	cutoff = add_to_date(now_datetime(), days=-stale_days)
+	requests = frappe.get_all(
+		"Visitor Request",
+		filters={"docstatus": 1, "workflow_state": ["in", PENDING_WORKFLOW_STATES]},
+		fields=["name", "modified"],
+		ignore_permissions=True,
+	)
+	rejected = []
+	for req in requests:
+		if not (req.modified and req.modified <= cutoff):
+			continue
+		try:
+			doc = frappe.get_doc("Visitor Request", req.name)
+			doc.rejection_reason = _(
+				"Auto-rejected: no response within {0} day(s)"
+			).format(stale_days)
+			apply_workflow(doc, "Reject Request")
+			rejected.append(req.name)
+		except Exception:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: stale request rejection failed"),
+				message=frappe.get_traceback(),
+			)
+	if rejected:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: auto-rejected stale requests"),
+			message="Auto-rejected: " + ", ".join(rejected),
+		)
+
+
+def _auto_blacklist_repeat_offenders():
+	"""Visitors with >= `visitor_pass_overstay_blacklist_threshold` overstays
+	(auto-revoked passes) or >= `visitor_pass_unauthorized_blacklist_threshold`
+	unauthorized scans are auto-blacklisted: an Active Blacklisted Visitor
+	record is created (the doctype hooks sync the Visitor flag), and their open
+	pending requests are auto-rejected."""
+	from frappe.model.workflow import apply_workflow
+
+	overstay_threshold = _config_int("visitor_pass_overstay_blacklist_threshold", 2)
+	unauthorized_threshold = _config_int("visitor_pass_unauthorized_blacklist_threshold", 3)
+
+	overstays = {}
+	if overstay_threshold > 0:
+		for r in frappe.db.sql(
+			"""
+			SELECT `visitor` AS visitor, COUNT(*) AS cnt
+			FROM `tabEntry Pass`
+			WHERE `status` = 'Revoked' AND `overstay_alert_sent` = 1
+			  AND `visitor` IS NOT NULL AND `visitor` != ''
+			GROUP BY `visitor`
+			""",
+			as_dict=True,
+		):
+			overstays[r["visitor"]] = r["cnt"]
+
+	unauthorized = {}
+	if unauthorized_threshold > 0:
+		for r in frappe.db.sql(
+			"""
+			SELECT `visitor` AS visitor, COUNT(*) AS cnt
+			FROM `tabGate Log Entry`
+			WHERE `is_authorized` = 0 AND `docstatus` < 2
+			  AND `visitor` IS NOT NULL AND `visitor` != ''
+			GROUP BY `visitor`
+			""",
+			as_dict=True,
+		):
+			unauthorized[r["visitor"]] = r["cnt"]
+
+	for visitor in set(overstays) | set(unauthorized):
+		o_cnt = overstays.get(visitor, 0)
+		u_cnt = unauthorized.get(visitor, 0)
+		if o_cnt < overstay_threshold and u_cnt < unauthorized_threshold:
+			continue
+		if not frappe.db.exists("Visitor", visitor):
+			continue
+		if frappe.db.exists("Blacklisted Visitor", {"visitor": visitor, "status": "Active"}):
+			continue
+		try:
+			visitor_data = frappe.db.get_value(
+				"Visitor",
+				visitor,
+				["visitor_name", "phone", "id_proof_number"],
+				as_dict=True,
+			)
+			reasons = []
+			if o_cnt >= overstay_threshold:
+				reasons.append(_("{0} overstays").format(o_cnt))
+			if u_cnt >= unauthorized_threshold:
+				reasons.append(_("{0} unauthorized scans").format(u_cnt))
+			reason = _("Auto-blacklisted: {0}").format(", ".join(reasons))
+			frappe.get_doc(
+				{
+					"doctype": "Blacklisted Visitor",
+					"visitor": visitor,
+					"visitor_name": visitor_data.visitor_name,
+					"phone": visitor_data.phone,
+					"id_proof_number": visitor_data.id_proof_number,
+					"reason": reason,
+					"blacklisted_by": "Administrator",
+					"blacklisted_on": getdate(),
+					"status": "Active",
+				}
+			).insert(ignore_permissions=True)
+
+			# reject the visitor's open pending requests
+			for name in frappe.get_all(
+				"Visitor Request",
+				filters={
+					"visitor": visitor,
+					"docstatus": 1,
+					"workflow_state": ["in", PENDING_WORKFLOW_STATES],
+				},
+				pluck="name",
+				ignore_permissions=True,
+			):
+				doc = frappe.get_doc("Visitor Request", name)
+				doc.blacklist_status = "Flagged"
+				doc.rejection_reason = reason
+				apply_workflow(doc, "Reject Request")
+		except Exception:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: auto-blacklist failed"),
+				message=frappe.get_traceback(),
+			)
+
+
+def is_trusted_visitor(visitor_name):
+	"""A visitor is 'trusted' when they have at least
+	`visitor_pass_trusted_visit_threshold` completed (Used) passes, are not
+	blacklisted and have no active blacklist record. Trusted visitors skip the
+	Department and Security approval steps automatically."""
+	if not visitor_name or not frappe.db.exists("Visitor", visitor_name):
+		return False
+	threshold = _config_int("visitor_pass_trusted_visit_threshold", 3)
+	if threshold <= 0:
+		return False
+	if check_blacklist({"name": visitor_name}):
+		return False
+	completed = frappe.db.count(
+		"Entry Pass", filters={"visitor": visitor_name, "status": "Used"}
+	)
+	return completed >= threshold
+
+
+def send_day_before_visit_reminders():
+	"""Daily job (9 AM): email + SMS visitors whose Approved visit is tomorrow."""
+	tomorrow = add_to_date(getdate(), days=1)
+	requests = frappe.get_all(
+		"Visitor Request",
+		filters={
+			"docstatus": 1,
+			"workflow_state": "Approved",
+			"visit_date": str(tomorrow),
+			"day_before_reminder_sent": 0,
+		},
+		fields=[
+			"name",
+			"visitor",
+			"visitor_name",
+			"visitor_phone",
+			"visit_date",
+			"expected_in_time",
+			"expected_out_time",
+			"location_gate",
+			"host_name",
+		],
+		ignore_permissions=True,
+	)
+	for req in requests:
+		try:
+			email = (
+				frappe.db.get_value("Visitor", req.visitor, "email")
+				if req.visitor
+				else None
+			)
+			subject = _("Reminder: your visit tomorrow at {0}").format(
+				req.location_gate or "our facility"
+			)
+			message = _(
+				"<p>Hi <b>{0}</b>,</p>"
+				"<p>This is a reminder that your visit is scheduled for "
+				"<b>tomorrow, {1}</b> ({2} to {3}) at <b>{4}</b>.</p>"
+				"<p>Your host is <b>{5}</b>. Please carry a valid ID proof.</p>"
+			).format(
+				req.visitor_name or "-",
+				req.visit_date,
+				req.expected_in_time or "-",
+				req.expected_out_time or "-",
+				req.location_gate or "-",
+				req.host_name or "-",
+			)
+			if email:
+				frappe.sendmail(
+					recipients=email,
+					subject=subject,
+					message=message,
+					reference_doctype="Visitor Request",
+					reference_name=req.name,
+				)
+			if req.visitor_phone:
+				_send_sms(
+					req.visitor_phone,
+					_("Reminder: your visit is tomorrow ({0}) at {1}, {2} to {3}.").format(
+						req.visit_date,
+						req.location_gate or "the facility",
+						req.expected_in_time or "-",
+						req.expected_out_time or "-",
+					),
+				)
+			frappe.db.set_value(
+				"Visitor Request", req.name, "day_before_reminder_sent", 1
+			)
+		except Exception:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: day-before reminder failed"),
+				message=frappe.get_traceback(),
+			)
+
+
+def send_expected_tomorrow_digest():
+	"""Daily job (5 PM): email the list of expected visitors for tomorrow to the
+	configured roles (default Security Officer + Reception)."""
+	roles = _config_list("visitor_pass_digest_roles", ["Security Officer", "Reception"])
+	recipients = _role_emails(roles)
+	if not recipients:
+		return
+	tomorrow = add_to_date(getdate(), days=1)
+	requests = frappe.get_all(
+		"Visitor Request",
+		filters={"docstatus": 1, "workflow_state": "Approved", "visit_date": str(tomorrow)},
+		fields=[
+			"name",
+			"visitor_name",
+			"expected_in_time",
+			"expected_out_time",
+			"location_gate",
+			"host_name",
+			"purpose",
+			"vehicle_number",
+		],
+		order_by="location_gate, expected_in_time",
+		ignore_permissions=True,
+	)
+	if not requests:
+		return
+	rows = "".join(
+		"<tr><td>{0}</td><td>{1}</td><td>{2} - {3}</td><td>{4}</td><td>{5}</td><td>{6}</td></tr>".format(
+			frappe.utils.escape_html(r.visitor_name or "-"),
+			frappe.utils.escape_html(r.purpose or "-"),
+			r.expected_in_time or "-",
+			r.expected_out_time or "-",
+			frappe.utils.escape_html(r.location_gate or "-"),
+			frappe.utils.escape_html(r.host_name or "-"),
+			frappe.utils.escape_html(r.vehicle_number or "-"),
+		)
+		for r in requests
+	)
+	html = _(
+		"<h3>Expected Visitors - {0}</h3>"
+		"<p>{1} approved visit(s) scheduled for tomorrow.</p>"
+		"<table border='1' cellpadding='6' style='border-collapse:collapse'>"
+		"<tr><th>Visitor</th><th>Purpose</th><th>Window</th><th>Gate</th><th>Host</th><th>Vehicle</th></tr>"
+		"{2}</table>"
+	).format(tomorrow, len(requests), rows)
+	try:
+		frappe.sendmail(
+			recipients=sorted(recipients),
+			subject=_("Expected Visitors tomorrow ({0}) - {1} visit(s)").format(
+				tomorrow, len(requests)
+			),
+			message=html,
+		)
+	except Exception:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: expected-tomorrow digest failed"),
+			message=frappe.get_traceback(),
+		)
+
+
+def send_end_of_day_reconciliation_digest():
+	"""Daily job (7 PM): email the Visitor Reconciliation summary for today to
+	Security + System Manager, with a CSV attachment of flagged records."""
+	roles = _config_list(
+		"visitor_pass_recon_digest_roles", ["Security Officer", "System Manager"]
+	)
+	recipients = _role_emails(roles)
+	if not recipients:
+		return
+	today = getdate()
+	try:
+		from visitor_pass_tracker.visitor_pass_tracker.report.visitor_reconciliation.visitor_reconciliation import (  # noqa
+			execute as reconciliation_execute,
+		)
+
+		_columns, data, _message, _chart, summary, _skip = reconciliation_execute(
+			{"from_date": str(today), "to_date": str(today)}
+		)
+	except Exception:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: reconciliation digest failed"),
+			message=frappe.get_traceback(),
+		)
+		return
+
+	summary_html = "".join(
+		"<tr><td>{0}</td><td style='text-align:center'><b>{1}</b></td></tr>".format(
+			frappe.utils.escape_html(item["label"]), item["value"]
+		)
+		for item in summary
+	)
+	anomalies = [row for row in data if row["flag"] in ("No-show", "Overstay", "Unauthorized")]
+	preview_html = ""
+	if anomalies:
+		preview = anomalies[:20]
+		preview_html = _(
+			"<h4>Flags needing attention (first {0})</h4>"
+			"<table border='1' cellpadding='6' style='border-collapse:collapse'>"
+			"<tr><th>Flag</th><th>Pass</th><th>Visitor</th><th>Gate</th><th>Valid Till</th></tr>"
+		).format(len(preview))
+		for row in preview:
+			visitor_name = (
+				frappe.db.get_value("Visitor", row["visitor"], "visitor_name")
+				if row.get("visitor")
+				else None
+			) or "-"
+			preview_html += "<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td></tr>".format(
+				frappe.utils.escape_html(row["flag"]),
+				frappe.utils.escape_html(row.get("entry_pass") or "-"),
+				frappe.utils.escape_html(visitor_name),
+				frappe.utils.escape_html(row.get("gate") or "-"),
+				frappe.utils.escape_html(str(row.get("valid_till") or "-")),
+			)
+		preview_html += "</table>"
+
+	html = _(
+		"<h3>End-of-day reconciliation - {0}</h3>"
+		"<table border='1' cellpadding='6' style='border-collapse:collapse'>{1}</table>"
+	).format(today, summary_html) + preview_html
+
+	try:
+		frappe.sendmail(
+			recipients=sorted(recipients),
+			subject=_("End-of-day reconciliation ({0})").format(today),
+			message=html,
+			attachments=[
+				{
+					"fname": "reconciliation_{0}.csv".format(today),
+					"fcontent": _recon_csv(anomalies),
+				}
+			],
+		)
+	except Exception:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: reconciliation digest email failed"),
+			message=frappe.get_traceback(),
+		)
+
+
+def _recon_csv(rows):
+	"""CSV of flagged reconciliation records (attachment for the digest)."""
+	import csv
+	import io
+
+	output = io.StringIO()
+	writer = csv.writer(output)
+	writer.writerow(
+		["flag", "type", "entry_pass", "visitor", "gate", "valid_till", "last_entry", "last_exit"]
+	)
+	for row in rows:
+		writer.writerow(
+			[
+				row.get("flag", ""),
+				row.get("type", ""),
+				row.get("entry_pass", ""),
+				row.get("visitor", ""),
+				row.get("gate", ""),
+				row.get("valid_till", ""),
+				row.get("last_entry", ""),
+				row.get("last_exit", ""),
+			]
+		)
+	return output.getvalue()
+
+
+def merge_duplicate_visitors():
+	"""Nightly job: merge Visitor masters sharing the same phone number. The
+	most complete record becomes primary; child documents (requests, passes,
+	gate logs, blacklist records) are relinked, missing fields are absorbed,
+	and the duplicates are marked via the hidden `merged_into` link. Records
+	are never deleted."""
+	visitors = frappe.get_all(
+		"Visitor",
+		fields=[
+			"name",
+			"visitor_name",
+			"phone",
+			"email",
+			"company_name",
+			"id_proof_type",
+			"id_proof_number",
+			"photo",
+			"modified",
+			"is_blacklisted",
+			"merged_into",
+			"notes",
+		],
+		order_by="modified desc",
+		limit_page_length=5000,
+		ignore_permissions=True,
+	)
+	by_phone = {}
+	for v in visitors:
+		if v.merged_into:
+			continue
+		phone = _normalize_phone(v.phone)
+		if len(phone) < 7:
+			continue
+		by_phone.setdefault(phone, []).append(v)
+
+	merged_total = 0
+	for group in by_phone.values():
+		if len(group) < 2:
+			continue
+		try:
+			merged_total += _merge_visitor_group(group)
+		except Exception:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: visitor merge failed"),
+				message=frappe.get_traceback(),
+			)
+	if merged_total:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: merged duplicate visitors"),
+			message=_("Merged {0} duplicate visitor record(s)").format(merged_total),
+		)
+
+
+def _merge_visitor_group(group):
+	"""Merge one phone-group of visitors into the most complete record.
+	Returns the number of records merged away."""
+	def _completeness(v):
+		score = 0
+		if v.email:
+			score += 2
+		if v.company_name:
+			score += 1
+		if v.id_proof_number:
+			score += 1
+		if v.photo:
+			score += 1
+		return score
+
+	primary = max(
+		group, key=lambda v: (_completeness(v), v.modified or get_datetime("2000-01-01"))
+	)
+	primary_name = frappe.db.get_value(
+		"Visitor", primary.name, ["visitor_name", "phone"], as_dict=True
+	)
+	merged_count = 0
+	for dup in group:
+		if dup.name == primary.name:
+			continue
+		_relink_child_documents(dup.name, primary.name, primary_name)
+		_absorb_missing_fields(primary, dup)
+		frappe.db.set_value("Visitor", dup.name, "merged_into", primary.name)
+		merged_count += 1
+	# re-save the primary so the blacklist flag recomputes after relinking
+	try:
+		frappe.get_doc("Visitor", primary.name).save(ignore_permissions=True)
+	except Exception:
+		# a legacy short phone can trip validate_phone - the relinks already
+		# happened, so just log and continue
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: primary visitor re-save failed"),
+			message=frappe.get_traceback(),
+		)
+	return merged_count
+
+
+def _relink_child_documents(from_visitor, to_visitor, primary_name=None):
+	"""Re-point every child document from the duplicate to the primary visitor,
+	refreshing fetched name/phone fields so logs and requests stay accurate."""
+	for doctype, fieldname in {
+		"Visitor Request": "visitor",
+		"Entry Pass": "visitor",
+		"Gate Log Entry": "visitor",
+		"Blacklisted Visitor": "visitor",
+	}.items():
+		for name in frappe.get_all(
+			doctype, filters={fieldname: from_visitor}, pluck="name"
+		):
+			frappe.db.set_value(doctype, name, fieldname, to_visitor)
+			if primary_name and doctype == "Gate Log Entry":
+				frappe.db.set_value(doctype, name, "visitor_name", primary_name.get("visitor_name"))
+			elif primary_name and doctype == "Visitor Request":
+				frappe.db.set_value(
+					doctype, name, "visitor_name", primary_name.get("visitor_name")
+				)
+				frappe.db.set_value(doctype, name, "visitor_phone", primary_name.get("phone"))
+
+
+def _absorb_missing_fields(primary, dup):
+	"""Fill empty fields on the primary from the duplicate (never overwrite)."""
+	for fieldname in [
+		"email",
+		"company_name",
+		"id_proof_type",
+		"id_proof_number",
+		"linked_contact",
+	]:
+		current = frappe.db.get_value("Visitor", primary.name, fieldname)
+		incoming = dup.get(fieldname)
+		if not current and incoming:
+			frappe.db.set_value("Visitor", primary.name, fieldname, incoming)
+
+
+def _build_ics(pass_name, valid_from, valid_till, summary, location, description=""):
+	"""Minimal iCalendar (RFC 5545) VEVENT string for email attachments."""
+	def _fmt(dt):
+		return get_datetime(dt).strftime("%Y%m%dT%H%M%S")
+
+	lines = [
+		"BEGIN:VCALENDAR",
+		"VERSION:2.0",
+		"PRODID:-//Visitor Pass Tracker//EN",
+		"BEGIN:VEVENT",
+		"UID:{0}@visitor-pass-tracker".format(pass_name),
+		"DTSTAMP:{0}".format(_fmt(now_datetime())),
+		"DTSTART:{0}".format(_fmt(valid_from)),
+		"DTEND:{0}".format(_fmt(valid_till)),
+		"SUMMARY:{0}".format(summary),
+		"LOCATION:{0}".format(location or ""),
+		"DESCRIPTION:{0}".format(description),
+		"END:VEVENT",
+		"END:VCALENDAR",
+	]
+	return "\r\n".join(lines)

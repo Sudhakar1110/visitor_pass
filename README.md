@@ -146,6 +146,69 @@ Active `Blacklisted Visitor` records (phone is normalized to digits).
    is still on-site past the grace period (`visitor_pass_overstay_grace_hours`
    in site_config.json, default 6h) are auto-revoked with an audit trail.
 
+5. **Approval reminders + escalation (hourly)** - `utils.run_hourly_automations`
+   - a request stuck in **Pending Host / Department / Security Approval** for
+     more than `visitor_pass_reminder_hours` (default **4h**) reminds the
+     approver (host / department head / Security Officer) by email + in-app
+     notification; after `visitor_pass_escalation_hours` (default **24h**) the
+     **System Manager** is notified. Deduplicated via hidden flags.
+
+6. **Auto-reject stale requests (hourly)** - still pending after
+   `visitor_pass_stale_days` (default **3 days**) -> auto-rejected with reason
+   "no response within N day(s)" and the host gets the standard rejection
+   notification.
+
+7. **Auto-blacklist repeat offenders (hourly)** - visitors with
+   `visitor_pass_overstay_blacklist_threshold`+ overstays (default **2**) or
+   `visitor_pass_unauthorized_blacklist_threshold`+ unauthorized scans
+   (default **3**) get an Active **Blacklisted Visitor** record created
+   automatically (reason auto-filled), the Visitor flag is synced, and their
+   open pending requests are rejected.
+
+8. **Auto-approve trusted repeat visitors** - a visitor with at least
+   `visitor_pass_trusted_visit_threshold` completed (Used) passes (default
+   **3**) and no blacklist record skips the **Department** and **Security**
+   approval steps automatically and goes straight to **Approved** (the host
+   step and blacklist check always stay).
+
+9. **Day-before visit reminder (daily 9 AM)** - `utils.send_day_before_visit_reminders`
+   emails + SMSes the visitor "your visit is tomorrow" with gate, time window
+   and host (deduplicated per request).
+
+10. **Expected-tomorrow digest (daily 5 PM)** - `utils.send_expected_tomorrow_digest`
+    emails the full list of approved visits for tomorrow (visitor, purpose,
+    window, gate, host, vehicle) to `visitor_pass_digest_roles` (default
+    **Security Officer, Reception**).
+
+11. **End-of-day reconciliation digest (daily 7 PM)** - `utils.send_end_of_day_reconciliation_digest`
+    emails the Visitor Reconciliation summary for today (scheduled / on-site /
+    overstay / no-show / unauthorized counts) plus a **CSV attachment** of all
+    flagged records to `visitor_pass_recon_digest_roles` (default **Security
+    Officer, System Manager**).
+
+12. **Calendar invite (.ics)** - every pass email (host + visitor) now carries
+    an `.ics` attachment so the visit window lands in their calendar.
+
+13. **Duplicate visitor auto-merge (daily 2 AM)** - `utils.merge_duplicate_visitors`
+    merges Visitors sharing the same phone: child documents (requests, passes,
+    gate logs, blacklist records) are relinked to the most complete record,
+    missing fields are absorbed, and duplicates are marked `merged_into`
+    (hidden) - nothing is ever deleted, and merged records are excluded from
+    lookups and the portal.
+
+14. **VIP arrival alert** - visitors flagged **VIP** (Check on the Visitor
+    doctype) trigger an instant email + in-app + SMS alert to the **Security
+    Officer** role and the host the moment they scan in.
+
+> **Configuration** (site_config.json) - all defaults are sensible; override
+> any of: `visitor_pass_reminder_hours`, `visitor_pass_escalation_hours`,
+> `visitor_pass_stale_days`, `visitor_pass_trusted_visit_threshold`,
+> `visitor_pass_overstay_blacklist_threshold`,
+> `visitor_pass_unauthorized_blacklist_threshold`, `visitor_pass_digest_roles`,
+> `visitor_pass_recon_digest_roles`. Set a threshold to `0` to disable that
+> automation. After pulling this release run `bench --site <sitename> migrate`
+> (adds the new columns) and `bench restart` (picks up the new crons).
+
 ---
 
 ## Gate scanner API

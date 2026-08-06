@@ -5,9 +5,11 @@ from frappe.model.workflow import apply_workflow
 from frappe.utils import get_datetime, getdate, now_datetime
 
 from visitor_pass_tracker.utils import (
+	_merged_filter,
 	_normalize_phone,
 	check_blacklist,
 	create_entry_pass_for_request,
+	is_trusted_visitor,
 )
 
 
@@ -40,12 +42,18 @@ class VisitorRequest(Document):
 		phone = _normalize_phone(self.visitor_phone)
 		if not phone:
 			return
-		# fast path - exact phone match first (stored value equals the raw query)
-		exact = frappe.get_all("Visitor", filters={"phone": phone}, fields=["name"], limit=1)
+		# fast path - exact phone match first (stored value equals the raw query);
+		# merged-away duplicates (nightly merge job) are skipped
+		merged = _merged_filter()
+		exact = frappe.get_all(
+			"Visitor", filters={"phone": phone, **merged}, fields=["name"], limit=1
+		)
 		if exact:
 			self.visitor = exact[0].name
 			return
-		visitors = frappe.get_all("Visitor", fields=["name", "phone"], order_by="modified desc")
+		visitors = frappe.get_all(
+			"Visitor", fields=["name", "phone"], order_by="modified desc", filters=merged
+		)
 		for v in visitors:
 			if _normalize_phone(v.phone) == phone:
 				self.visitor = v.name
@@ -202,6 +210,20 @@ class VisitorRequest(Document):
 
 		if self.workflow_state == "Pending Department Approval" and self.purpose == "Delivery":
 			apply_workflow(self, "Skip for Delivery")
+
+		# trusted repeat visitors skip the Department and Security approval steps
+		# automatically (configurable via visitor_pass_trusted_visit_threshold)
+		if (
+			self.workflow_state == "Pending Department Approval"
+			and self.purpose != "Delivery"
+			and is_trusted_visitor(self.visitor)
+		):
+			apply_workflow(self, "Approve by Department Head")
+
+		if self.workflow_state == "Pending Security Approval" and is_trusted_visitor(
+			self.visitor
+		):
+			apply_workflow(self, "Approve by Security Officer")
 
 		if self.workflow_state == "Approved":
 			create_entry_pass_for_request(self)

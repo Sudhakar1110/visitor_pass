@@ -146,13 +146,33 @@ permission_query_conditions = {
 # Scheduler
 # ---------------------------------------------------------------------------
 # 1. Pass-expiry alert: every 15 minutes, notify hosts about passes expiring
-#    within the next 30 minutes and auto-mark expired passes as "Expired".
-# 2. Gate log reconciliation is a Script Report ("Visitor Reconciliation") that
-#    can also be run on demand or scheduled by the site administrator.
+#    within the next 30 minutes, auto-mark expired passes as "Expired", alert
+#    Security about overstays and auto-revoke them after the grace period.
+# 2. Hourly automations: approval reminders + escalation, stale-request
+#    auto-rejection and repeat-offender auto-blacklisting.
+# 3. Daily 9 AM: SMS/email visitors whose Approved visit is tomorrow.
+# 4. Daily 5 PM: "Expected Visitors tomorrow" digest to Security/Reception.
+# 5. Daily 7 PM: end-of-day reconciliation digest to Security/System Manager.
+# 6. Daily 2 AM: merge duplicate Visitors sharing the same phone.
 scheduler_events = {
 	"cron": {
 		"*/15 * * * *": [
 			"visitor_pass_tracker.utils.run_pass_expiry_checks",
+		],
+		"0 * * * *": [
+			"visitor_pass_tracker.utils.run_hourly_automations",
+		],
+		"0 9 * * *": [
+			"visitor_pass_tracker.utils.send_day_before_visit_reminders",
+		],
+		"0 17 * * *": [
+			"visitor_pass_tracker.utils.send_expected_tomorrow_digest",
+		],
+		"0 19 * * *": [
+			"visitor_pass_tracker.utils.send_end_of_day_reconciliation_digest",
+		],
+		"0 2 * * *": [
+			"visitor_pass_tracker.utils.merge_duplicate_visitors",
 		],
 	},
 }

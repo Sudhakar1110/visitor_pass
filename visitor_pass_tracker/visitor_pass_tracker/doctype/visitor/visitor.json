@@ -16,10 +16,12 @@
   "id_proof_document",
   "id_proof_verified",
   "company_name",
+  "is_vip",
   "linked_contact",
   "section_break_9",
   "is_blacklisted",
-  "notes"
+  "notes",
+  "merged_into"
  ],
  "fields": [
   {
@@ -93,6 +95,14 @@
    "label": "Company Name"
   },
   {
+   "default": "0",
+   "description": "VIP arrivals trigger an instant alert to Security and the host",
+   "fieldname": "is_vip",
+   "fieldtype": "Check",
+   "in_standard_filter": 1,
+   "label": "VIP Visitor"
+  },
+  {
    "depends_on": "eval:frappe.db.exists('Contact', doc.linked_contact)",
    "fieldname": "linked_contact",
    "fieldtype": "Link",
@@ -115,6 +125,14 @@
    "fieldname": "notes",
    "fieldtype": "Small Text",
    "label": "Notes"
+  },
+  {
+   "fieldname": "merged_into",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Merged Into",
+   "options": "Visitor",
+   "read_only": 1
   }
  ],
  "icon": "octicon octicon-person",

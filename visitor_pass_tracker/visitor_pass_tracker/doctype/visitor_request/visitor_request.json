@@ -31,7 +31,10 @@
   "rejection_reason",
   "section_break_host",
   "host_checkin_time",
-  "host_checkout_time"
+  "host_checkout_time",
+  "approval_reminder_sent",
+  "approval_escalated",
+  "day_before_reminder_sent"
  ],
  "fields": [
   {
@@ -227,6 +230,30 @@
    "fieldname": "host_checkout_time",
    "fieldtype": "Datetime",
    "label": "Host Check-out Time",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "approval_reminder_sent",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Approval Reminder Sent",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "approval_escalated",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Approval Escalated",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "day_before_reminder_sent",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Day-Before Reminder Sent",
    "read_only": 1
   }
  ],
