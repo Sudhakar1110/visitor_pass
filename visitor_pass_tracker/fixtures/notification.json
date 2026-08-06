@@ -75,22 +75,20 @@
   "value_changed": "workflow_state"
  },
  {
-  "attach_files": "From Field",
   "channel": "Email",
-  "condition": "",
-  "document_type": "Entry Pass",
+  "condition": "doc.workflow_state == \"Rejected\" and doc.blacklist_status != \"Flagged\"",
+  "document_type": "Visitor Request",
   "doctype": "Notification",
   "enabled": 1,
-  "event": "New",
-  "from_attach_field": "qr_code",
+  "event": "Value Change",
   "is_standard": 0,
-  "message": "<h3>Entry Pass {{ doc.name }} generated</h3><p>Visitor <b>{{ doc.visitor_name }}</b> &nbsp;|&nbsp; Valid from <b>{{ doc.valid_from }}</b> till <b>{{ doc.valid_till }}</b></p><p>The QR code is attached to this email - share it with Security at the gate.</p>{% if doc.qr_code %}<p><img src=\"{{ doc.qr_code }}\" style=\"width: 160px;\"></p>{% endif %}",
+  "message": "<h3>Visitor Request Rejected</h3><p>Visitor Request <b>{{ doc.name }}</b> for visitor <b>{{ doc.visitor_name }}</b> ({{ doc.visitor_phone }}) scheduled on <b>{{ doc.visit_date }}</b> was <b>rejected</b>.</p><p><b>Reason:</b> {{ doc.rejection_reason or \"No reason provided\" }}</p><p>Please contact the requester or the department if you believe this was a mistake.</p>",
   "message_type": "HTML",
   "module": "visitor_pass_tracker",
-  "name": "Entry Pass Generated",
+  "name": "Visitor Request Rejected",
   "recipients": [
    {
-    "parent": "Entry Pass Generated",
+    "parent": "Visitor Request Rejected",
     "parentfield": "recipients",
     "parenttype": "Notification",
     "receiver_by_document_field": "host_user",
@@ -98,7 +96,8 @@
    }
   ],
   "send_system_notification": 1,
-  "subject": "Entry Pass {{ doc.name }} generated for visitor {{ doc.visitor_name }}"
+  "subject": "Visitor Request {{ doc.name }} was rejected",
+  "value_changed": "workflow_state"
  },
  {
   "channel": "Email",

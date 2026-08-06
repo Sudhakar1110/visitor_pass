@@ -23,6 +23,7 @@ def run_pass_expiry_checks():
 	expire_passes()
 	alert_hosts_of_upcoming_expiry()
 	alert_security_of_overstays()
+	auto_revoke_overstays()
 
 
 def expire_passes():
@@ -201,6 +202,56 @@ def alert_security_of_overstays():
 			frappe.db.set_value("Entry Pass", entry.name, "overstay_alert_sent", 1)
 
 
+def auto_revoke_overstays():
+	"""Auto-revoke passes whose visitor is still on-site long after the pass
+	expired (Entry scan, no Exit scan, past the grace period).
+
+	Grace period is configurable via `visitor_pass_overstay_grace_hours` in
+	site_config.json (default 6 hours). The overstay alert must already have
+	been sent before the pass is revoked.
+	"""
+	grace = (
+		frappe.conf.get("visitor_pass_overstay_grace_hours")
+		or frappe.flags.visitor_pass_overstay_grace_hours
+		or 6
+	)
+	threshold = add_to_date(now_datetime(), hours=-int(grace))
+	passes = frappe.get_all(
+		"Entry Pass",
+		filters={
+			"status": "Expired",
+			"valid_till": ("<", threshold),
+			"overstay_alert_sent": 1,
+		},
+		fields=["name", "visitor", "visitor_name"],
+		ignore_permissions=True,
+	)
+
+	revoked = []
+	for entry in passes:
+		has_entry = frappe.db.exists(
+			"Gate Log Entry",
+			{"entry_pass": entry.name, "scan_type": "Entry", "docstatus": ("<", 2)},
+		)
+		has_exit = frappe.db.exists(
+			"Gate Log Entry",
+			{"entry_pass": entry.name, "scan_type": "Exit", "docstatus": ("<", 2)},
+		)
+		if has_entry and not has_exit:
+			frappe.db.set_value(
+				"Entry Pass",
+				entry.name,
+				{"status": "Revoked", "revoked_by": "Administrator", "revoked_on": now_datetime()},
+			)
+			revoked.append(entry.name)
+
+	if revoked:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: auto-revoked overstays"),
+			message="Auto-revoked after grace period: " + ", ".join(revoked),
+		)
+
+
 # ---------------------------------------------------------------------------
 # Blacklist auto-check
 # ---------------------------------------------------------------------------
@@ -299,17 +350,28 @@ def create_entry_pass_for_request(request):
 
 	in_time = request.get("expected_in_time") or "09:00:00"
 	out_time = request.get("expected_out_time") or "18:00:00"
+	end_date = request.get("visit_end_date") or request.get("visit_date")
 	valid_from = get_datetime(f"{request.get('visit_date')} {in_time}")
-	valid_till = get_datetime(f"{request.get('visit_date')} {out_time}")
+	valid_till = get_datetime(f"{end_date} {out_time}")
+
+	visitor_email = company_name = None
+	if request.get("visitor"):
+		visitor_email, company_name = frappe.db.get_value(
+			"Visitor", request.get("visitor"), ["email", "company_name"]
+		) or (None, None)
 
 	entry_pass = frappe.get_doc(
 		{
 			"doctype": "Entry Pass",
 			"visitor_request": request.name,
 			"visitor": request.get("visitor"),
+			"visitor_email": visitor_email,
+			"company_name": company_name,
 			"host": request.get("host"),
 			"host_user": request.get("host_user"),
 			"location_gate": request.get("location_gate"),
+			"vehicle_number": request.get("vehicle_number"),
+			"is_escort_required": request.get("is_escort_required"),
 			"valid_from": valid_from,
 			"valid_till": valid_till,
 			"status": "Active",
@@ -318,7 +380,99 @@ def create_entry_pass_for_request(request):
 	entry_pass.insert(ignore_permissions=True)
 	entry_pass.reload()
 	attach_qr_code(entry_pass)
+
+	# The pass emails (host + visitor, with the QR) are sent from here - the
+	# native "New"-event notifications fire during insert(), before the QR
+	# exists, so this guarantees the QR image is actually delivered.
+	send_pass_notifications(entry_pass)
+
+	# SMS the visitor the pass number (channel-ready; requires Frappe SMS
+	# Settings to be configured, failures are logged silently)
+	if request.get("visitor"):
+		visitor_phone = frappe.db.get_value("Visitor", request.get("visitor"), "phone")
+		if visitor_phone:
+			_send_sms(
+				visitor_phone,
+				_("Your entry pass {0} for {1} is approved. Present this pass number "
+				  "at gate {2}.").format(
+					entry_pass.name,
+					request.get("visit_date"),
+					request.get("location_gate") or "the main gate",
+				),
+			)
 	return entry_pass
+
+
+def send_pass_notifications(entry_pass):
+	"""Email the Entry Pass + QR to the host and the visitor after the QR code
+	has been generated. Failures are logged, never raised."""
+	qr_code = frappe.db.get_value("Entry Pass", entry_pass.name, "qr_code")
+	subject = _("Entry Pass {0} generated for {1}").format(
+		entry_pass.name, entry_pass.visitor_name
+	)
+	message = _(
+		"<h3>Entry Pass {0} generated</h3>"
+		"<p>Visitor <b>{1}</b> | Valid from <b>{2}</b> till <b>{3}</b></p>"
+		"<p>Gate: <b>{4}</b></p>"
+	).format(
+		entry_pass.name,
+		entry_pass.visitor_name or "-",
+		frappe.utils.format_datetime(entry_pass.valid_from),
+		frappe.utils.format_datetime(entry_pass.valid_till),
+		entry_pass.location_gate or "-",
+	)
+	if qr_code:
+		message += '<p><img src="{0}" style="width:160px;"></p>'.format(qr_code)
+	attachments = [{"file_url": qr_code}] if qr_code else None
+
+	# host - email + in-app notification
+	host_user = entry_pass.host_user
+	if host_user:
+		try:
+			host_email = frappe.db.get_value("User", host_user, "email")
+			if host_email:
+				frappe.sendmail(
+					recipients=host_email,
+					subject=subject,
+					message=message,
+					reference_doctype="Entry Pass",
+					reference_name=entry_pass.name,
+					attachments=attachments,
+				)
+		except frappe.OutgoingEmailError:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: pass email failed"),
+				message=f"Entry Pass email to host {host_user} could not be sent.",
+			)
+		frappe.get_doc(
+			{
+				"doctype": "Notification Log",
+				"for_user": host_user,
+				"from_user": frappe.session.user or "Administrator",
+				"subject": subject,
+				"document_type": "Entry Pass",
+				"document_name": entry_pass.name,
+				"type": "Alert",
+			}
+		).insert(ignore_permissions=True)
+
+	# visitor - email (no in-app log; the visitor is usually not a User)
+	visitor_email = frappe.db.get_value("Visitor", entry_pass.visitor, "email") if entry_pass.visitor else None
+	if visitor_email:
+		try:
+			frappe.sendmail(
+				recipients=visitor_email,
+				subject=subject,
+				message=message,
+				reference_doctype="Entry Pass",
+				reference_name=entry_pass.name,
+				attachments=attachments,
+			)
+		except frappe.OutgoingEmailError:
+			frappe.log_error(
+				title=_("Visitor Pass Tracker: visitor pass email failed"),
+				message=f"Entry Pass email to visitor {entry_pass.visitor_name} could not be sent.",
+			)
 
 
 def attach_qr_code(entry_pass):
@@ -375,8 +529,66 @@ def attach_qr_code(entry_pass):
 
 
 # ---------------------------------------------------------------------------
+# SMS helper - uses Frappe's SMS Settings (Twilio / Exotel / MSG91 etc.)
+# ---------------------------------------------------------------------------
+
+
+def _send_sms(phone, message):
+	"""Best-effort SMS via Frappe SMS Settings. Never raises - failures are
+	logged so email/in-app notifications still cover the recipient."""
+	if not phone or not message:
+		return
+	try:
+		from frappe.core.doctype.sms_settings.sms_settings import send_sms
+
+		send_sms(receiver_list=[phone], msg=message)
+	except Exception:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: SMS failed"),
+			message=frappe.get_traceback(),
+		)
+
+
+def is_security_user(user=None):
+	"""True for Administrator / System Manager / Security Officer / Reception."""
+	user = user or frappe.session.user
+	if user == "Administrator":
+		return True
+	return bool(
+		set(frappe.get_roles(user)) & {"System Manager", "Security Officer", "Reception"}
+	)
+
+
+@frappe.whitelist()
+def send_sms_to_phone(phone=None, message=None):
+	"""Whitelisted SMS sender for internal integrations (SMS Settings required).
+	Restricted to security roles so the (paid) SMS gateway cannot be abused."""
+	if not is_security_user():
+		frappe.throw(_("Not permitted"), frappe.PermissionError)
+	if not phone or not message:
+		frappe.throw(_("phone and message are required"))
+	_send_sms(phone, message)
+	return {"status": "sent"}
+
+
+# ---------------------------------------------------------------------------
 # Dashboard - Number Cards (type = Custom)
 # ---------------------------------------------------------------------------
+
+
+@frappe.whitelist()
+def get_visitors_expected_today(**kwargs):
+	"""Number card: Visitor Requests scheduled for today that are not yet done
+	(any open/approved state, excluding Draft and Rejected)."""
+	count = frappe.db.count(
+		"Visitor Request",
+		filters={
+			"visit_date": frappe.utils.today(),
+			"docstatus": 1,
+			"workflow_state": ["not in", ["Rejected"]],
+		},
+	)
+	return {"value": count, "fieldtype": "Int"}
 
 
 @frappe.whitelist()

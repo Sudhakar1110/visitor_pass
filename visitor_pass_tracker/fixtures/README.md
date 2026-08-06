@@ -20,9 +20,11 @@ file order does not matter. The `fixtures` list in `hooks.py` is used by
 6. `dashboard_chart_source.json` — custom chart source for "Peak Visit Hours"
    (`source_name` is the dotted path to `utils.get_peak_visit_hours`)
 7. `dashboard_chart.json` — the 4 dashboard charts
-8. `number_card.json` — the 2 dashboard number cards
+8. `number_card.json` — the dashboard number cards (On-Site Now, Expiring
+   Next Hour, Expected Today)
 9. `dashboard.json` — the "Visitor Overview" dashboard
-10. `custom_field.json` — intentionally empty: every field lives on an
+10. `web_form.json` — the Request a Visit + Visitor Pre-Registration web forms
+11. `custom_field.json` — intentionally empty: every field lives on an
     app-owned doctype, so no custom fields are required (kept for convention).
 
 Note: the "Visitor Reconciliation" script report is *not* a fixture. Its record is

@@ -18,6 +18,7 @@
   "section_break_9",
   "purpose",
   "visit_date",
+  "visit_end_date",
   "expected_in_time",
   "expected_out_time",
   "column_break_14",
@@ -27,7 +28,10 @@
   "blacklist_status",
   "workflow_state",
   "notes",
-  "rejection_reason"
+  "rejection_reason",
+  "section_break_host",
+  "host_checkin_time",
+  "host_checkout_time"
  ],
  "fields": [
   {
@@ -130,6 +134,13 @@
    "reqd": 1
   },
   {
+   "depends_on": "visit_date",
+   "fieldname": "visit_end_date",
+   "fieldtype": "Date",
+   "label": "Visit End Date",
+   "description": "Leave blank for a single-day visit. Set a later date for overnight / multi-day visits."
+  },
+  {
    "default": "09:00:00",
    "fieldname": "expected_in_time",
    "fieldtype": "Time",
@@ -198,12 +209,42 @@
    "fieldtype": "Small Text",
    "label": "Rejection Reason",
    "description": "Required when a request is rejected by an approver"
+  },
+  {
+   "fieldname": "section_break_host",
+   "fieldtype": "Section Break",
+   "label": "Host Check-in"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "host_checkin_time",
+   "fieldtype": "Datetime",
+   "label": "Host Check-in Time",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "host_checkout_time",
+   "fieldtype": "Datetime",
+   "label": "Host Check-out Time",
+   "read_only": 1
   }
  ],
  "icon": "octicon octicon-checklist",
  "idx": 1,
  "is_submittable": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Passes & Logs",
+   "link_doctype": "Entry Pass",
+   "link_fieldname": "visitor_request"
+  },
+  {
+   "group": "Passes & Logs",
+   "link_doctype": "Gate Log Entry",
+   "link_fieldname": "visitor_request"
+  }
+ ],
  "modified": "2026-01-01 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "visitor_pass_tracker",

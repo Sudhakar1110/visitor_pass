@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.model.workflow import apply_workflow
+from frappe.utils import get_datetime, now_datetime
 
 from visitor_pass_tracker.utils import (
 	_normalize_phone,
@@ -16,6 +17,16 @@ class VisitorRequest(Document):
 		self.validate_blacklist()
 		self.validate_visit_window()
 		self.validate_no_overlapping_visit()
+
+	def before_insert(self):
+		"""Web-form convenience: when an employee raises a request without
+		picking a host, default the host to themselves."""
+		if not self.host:
+			employee = frappe.db.get_value(
+				"Employee", {"user_id": frappe.session.user}, "name"
+			)
+			if employee:
+				self.host = employee
 
 	def before_submit(self):
 		self.validate_visit_date()
@@ -45,8 +56,9 @@ class VisitorRequest(Document):
 			frappe.throw(_("Visit Date cannot be in the past"))
 
 	def validate_no_overlapping_visit(self):
-		"""A visitor must not hold two Active visits with overlapping windows on
-		the same day - prevents duplicate passes for the same person/gate."""
+		"""A visitor must not hold two Active visits with overlapping windows
+		(same or crossing days) - prevents duplicate passes for the same
+		person/gate."""
 		if not self.visitor or not self.visit_date:
 			return
 		if not (self.expected_in_time and self.expected_out_time):
@@ -54,63 +66,76 @@ class VisitorRequest(Document):
 		conflict = self._find_overlapping_visit()
 		if conflict:
 			frappe.throw(
-				_("Visitor {0} already has {1} with an overlapping visit window on {2}. "
-				  "Choose a non-overlapping time or use a single request.").format(
-					self.visitor_name or self.visitor, conflict, self.visit_date
+				_("Visitor {0} already has {1} with an overlapping visit window "
+				  "({2} {3} to {4} {5}). Choose a non-overlapping slot or use a "
+				  "single request.").format(
+					self.visitor_name or self.visitor,
+					conflict,
+					self.visit_date,
+					self.expected_in_time,
+					self.visit_end_date or self.visit_date,
+					self.expected_out_time,
 				)
 			)
 
+	def _visit_start(self):
+		return get_datetime(f"{self.visit_date} {self.expected_in_time or '00:00:00'}")
+
+	def _visit_end(self):
+		return get_datetime(
+			f"{(self.visit_end_date or self.visit_date)} {self.expected_out_time or '23:59:59'}"
+		)
+
 	def _find_overlapping_visit(self):
+		start = self._visit_start()
+		end = self._visit_end()
+
 		# 1) overlapping submitted requests (excluding self)
-		req_filters = {
-			"visitor": self.visitor,
-			"visit_date": self.visit_date,
-			"docstatus": 1,
-			"workflow_state": ["not in", ["Rejected"]],
-		}
-		if self.name:
-			req_filters["name"] = ["!=", self.name]
 		# ignore_permissions: this is a data-integrity guard and must consider
 		# requests raised by other hosts, not only the current user's own
 		for other in frappe.get_all(
 			"Visitor Request",
-			filters=req_filters,
-			fields=["name", "expected_in_time", "expected_out_time"],
+			filters={
+				"visitor": self.visitor,
+				"docstatus": 1,
+				"workflow_state": ["not in", ["Rejected"]],
+			},
+			fields=[
+				"name",
+				"visit_date",
+				"visit_end_date",
+				"expected_in_time",
+				"expected_out_time",
+			],
 			ignore_permissions=True,
 		):
-			if self._time_windows_overlap(
-				other.get("expected_in_time"), other.get("expected_out_time")
-			):
+			if other.name == self.name:
+				continue
+			o_start = get_datetime(
+				f"{other.visit_date} {other.expected_in_time or '00:00:00'}"
+			)
+			o_end = get_datetime(
+				f"{(other.visit_end_date or other.visit_date)} {other.expected_out_time or '23:59:59'}"
+			)
+			if start < o_end and o_start < end:
 				return "Visitor Request {0}".format(other.name)
 
-		# 2) existing non-revoked Entry Passes for the same visitor/day
+		# 2) existing non-revoked Entry Passes for the same visitor
 		#    (excluding this request's own pass)
-		pass_filters = {
-			"visitor": self.visitor,
-			"status": ["in", ["Active", "Expired"]],
-			"valid_from": [
-				"between",
-				[f"{self.visit_date} 00:00:00", f"{self.visit_date} 23:59:59"],
-			],
-		}
-		if self.name:
-			pass_filters["visitor_request"] = ["!=", self.name]
 		for ep in frappe.get_all(
 			"Entry Pass",
-			filters=pass_filters,
-			fields=["name", "valid_from", "valid_till"],
+			filters={
+				"visitor": self.visitor,
+				"status": ["in", ["Active", "Expired"]],
+			},
+			fields=["name", "visitor_request", "valid_from", "valid_till"],
 			ignore_permissions=True,
 		):
-			o_in = str(ep.valid_from)[11:19] if ep.valid_from else None
-			o_out = str(ep.valid_till)[11:19] if ep.valid_till else None
-			if self._time_windows_overlap(o_in, o_out):
+			if self.name and ep.visitor_request == self.name:
+				continue
+			if start < ep.valid_till and ep.valid_from < end:
 				return "Entry Pass {0}".format(ep.name)
 		return None
-
-	def _time_windows_overlap(self, o_in, o_out):
-		if not o_in or not o_out:
-			return False
-		return self.expected_in_time < o_out and o_in < self.expected_out_time
 
 	# ------------------------------------------------------------------
 	# Blacklist auto-check (Server Script equivalent)
@@ -131,6 +156,8 @@ class VisitorRequest(Document):
 			and self.expected_out_time <= self.expected_in_time
 		):
 			frappe.throw(_("Expected Out Time must be after Expected In Time"))
+		if self.visit_date and self.visit_end_date and self.visit_end_date < self.visit_date:
+			frappe.throw(_("Visit End Date cannot be before Visit Date"))
 
 	# ------------------------------------------------------------------
 	# Workflow automation - the state machine itself lives in the native
@@ -279,3 +306,49 @@ def _departments_headed_by(user):
 	return [
 		d.name for d in tree if any(d.lft >= h.lft and d.rgt <= h.rgt for h in headed)
 	]
+
+
+# ---------------------------------------------------------------------------
+# Host check-in / check-out (visit-completion tracking beyond gate scans)
+# ---------------------------------------------------------------------------
+
+
+def _can_act_as_host(request_name, user=None):
+	"""Host / owner / security / reception / system manager may mark check-in."""
+	user = user or frappe.session.user
+	if user == "Administrator":
+		return True
+	roles = frappe.get_roles(user)
+	if any(role in roles for role in ("System Manager", "Security Officer", "Reception")):
+		return True
+	req = frappe.get_doc("Visitor Request", request_name)
+	if req.owner == user:
+		return True
+	host_user = frappe.db.get_value("Employee", req.host, "user_id") if req.host else None
+	return host_user == user
+
+
+@frappe.whitelist()
+def host_checkin(request=None):
+	"""Mark that the host has received the visitor (meeting started)."""
+	if not request:
+		frappe.throw(_("Visitor Request is required"))
+	if not _can_act_as_host(request):
+		frappe.throw(_("Not permitted - only the host or security can mark check-in"), frappe.PermissionError)
+	now = now_datetime()
+	frappe.db.set_value("Visitor Request", request, "host_checkin_time", now)
+	frappe.db.commit()
+	return {"status": "checked_in", "request": request, "time": str(now)}
+
+
+@frappe.whitelist()
+def host_checkout(request=None):
+	"""Mark that the host has completed the visit (meeting finished)."""
+	if not request:
+		frappe.throw(_("Visitor Request is required"))
+	if not _can_act_as_host(request):
+		frappe.throw(_("Not permitted - only the host or security can mark check-out"), frappe.PermissionError)
+	now = now_datetime()
+	frappe.db.set_value("Visitor Request", request, "host_checkout_time", now)
+	frappe.db.commit()
+	return {"status": "checked_out", "request": request, "time": str(now)}

@@ -75,7 +75,7 @@ fixtures = [
 					"Visitor Request Pending Host Approval",
 					"Visitor Request Approved",
 					"Visitor Request Rejected - Blacklist",
-					"Entry Pass Generated",
+					"Visitor Request Rejected",
 					"Visitor Arrived",
 					"Unauthorized Scan Detected",
 				],
@@ -106,7 +106,21 @@ fixtures = [
 			]
 		],
 	},
-	{"dt": "Number Card", "filters": [["name", "in", ["Visitors On-Site Now", "Passes Expiring in Next Hour"]]]},
+	{
+		"dt": "Number Card",
+		"filters": [
+			[
+				"name",
+				"in",
+				[
+					"Visitors On-Site Now",
+					"Passes Expiring in Next Hour",
+					"Visitors Expected Today",
+				],
+			]
+		],
+	},
+	{"dt": "Web Form", "filters": [["name", "in", ["request-a-visit", "visitor-pre-registration"]]]},
 	{"dt": "Dashboard", "filters": [["name", "=", "Visitor Overview"]]},
 	# Kept for completeness - no extra custom fields are required because every
 	# field lives on an app-owned doctype. Ship an empty custom_field.json.

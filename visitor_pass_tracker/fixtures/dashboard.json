@@ -12,6 +12,12 @@
     "parent": "Visitor Overview",
     "parentfield": "cards",
     "parenttype": "Dashboard"
+   },
+   {
+    "card": "Visitors Expected Today",
+    "parent": "Visitor Overview",
+    "parentfield": "cards",
+    "parenttype": "Dashboard"
    }
   ],
   "charts": [

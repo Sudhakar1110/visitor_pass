@@ -22,5 +22,17 @@
   "name": "Passes Expiring in Next Hour",
   "show_percentage_stats": 0,
   "type": "Custom"
+ },
+ {
+  "color": "#2490ef",
+  "doctype": "Number Card",
+  "is_public": 1,
+  "is_standard": 1,
+  "label": "Visitors Expected Today",
+  "method": "visitor_pass_tracker.utils.get_visitors_expected_today",
+  "module": "visitor_pass_tracker",
+  "name": "Visitors Expected Today",
+  "show_percentage_stats": 0,
+  "type": "Custom"
  }
 ]

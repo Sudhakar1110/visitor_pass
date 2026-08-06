@@ -13,6 +13,8 @@
   "column_break_4",
   "id_proof_type",
   "id_proof_number",
+  "id_proof_document",
+  "id_proof_verified",
   "company_name",
   "linked_contact",
   "section_break_9",
@@ -72,6 +74,19 @@
    "label": "ID Proof Number"
   },
   {
+   "fieldname": "id_proof_document",
+   "fieldtype": "Attach",
+   "label": "ID Proof Document"
+  },
+  {
+   "default": "Not Verified",
+   "fieldname": "id_proof_verified",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "ID Proof Verified",
+   "options": "Not Verified\nVerified"
+  },
+  {
    "fieldname": "company_name",
    "fieldtype": "Data",
    "in_global_search": 1,
@@ -104,7 +119,28 @@
  ],
  "icon": "octicon octicon-person",
  "idx": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Visits",
+   "link_doctype": "Visitor Request",
+   "link_fieldname": "visitor"
+  },
+  {
+   "group": "Visits",
+   "link_doctype": "Entry Pass",
+   "link_fieldname": "visitor"
+  },
+  {
+   "group": "Visits",
+   "link_doctype": "Gate Log Entry",
+   "link_fieldname": "visitor"
+  },
+  {
+   "group": "Blacklist",
+   "link_doctype": "Blacklisted Visitor",
+   "link_fieldname": "visitor"
+  }
+ ],
  "modified": "2026-01-01 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "visitor_pass_tracker",
@@ -154,6 +190,11 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Guest"
   }
  ],
  "quick_entry": 1,

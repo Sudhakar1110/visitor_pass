@@ -128,6 +128,11 @@ def submit_scan(
 	if log.is_authorized and scan_type == "Exit" and pass_name:
 		frappe.db.set_value("Entry Pass", pass_name, "status", "Used")
 
+	# an authorized entry notifies the host - in-app/email via the native
+	# Notification fixture, plus an SMS to the host's mobile (best-effort)
+	if log.is_authorized and scan_type == "Entry" and pass_name:
+		_notify_host_sms(log)
+
 	frappe.db.commit()
 
 	return {
@@ -143,6 +148,28 @@ def _validate_api_token(token):
 	expected = frappe.conf.get("visitor_pass_api_token")
 	if expected and token != expected:
 		frappe.throw(_("Invalid or missing API token"), frappe.AuthenticationError)
+
+
+def _notify_host_sms(log):
+	"""Best-effort SMS to the host's mobile when their visitor arrives."""
+	if not log.host_user:
+		return
+	employee_phone = frappe.db.get_value(
+		"Employee", {"user_id": log.host_user}, "cell_number"
+	)
+	if not employee_phone:
+		return
+	from visitor_pass_tracker.utils import _send_sms
+
+	_send_sms(
+		employee_phone,
+		_("Your visitor {0} ({1}) has arrived at gate {2} at {3}.").format(
+			log.visitor_name or "-",
+			log.entry_pass or "-",
+			log.gate,
+			frappe.utils.format_datetime(log.scan_time),
+		),
+	)
 
 
 def _resolve_gate(gate):

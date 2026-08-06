@@ -109,6 +109,10 @@ Active `Blacklisted Visitor` records (phone is normalized to digits).
 3. **Blacklist auto-check** - on the `Visitor Request` controller
    (`validate` + auto-reject in `on_submit`).
 
+4. **Auto-revoke overstays** - after the overstay alert, passes whose visitor
+   is still on-site past the grace period (`visitor_pass_overstay_grace_hours`
+   in site_config.json, default 6h) are auto-revoked with an audit trail.
+
 ---
 
 ## Gate scanner API
@@ -171,6 +175,32 @@ manual desk entries are distinguishable from hardware scans.
 
 ---
 
+## Self-service & operations
+
+- **Web forms** (shipped as fixtures): **Request a Visit** (`/request-a-visit`, login
+  required, raises a Draft Visitor Request - the logged-in employee becomes the
+  default host) and **Visitor Pre-Registration** (`/visitor-pre-registration`,
+  public, creates/updates the Visitor master).
+- **Gate Scanner** desk page (`/app/gate-scanner`) - a console for security to
+  scan/paste a pass and run Entry / Exit / Manual Exit / Revoke / Extend without
+  REST calls (camera scanning can be added on top; the console works with the
+  pass number or the full QR payload).
+- **Expected Visitors** script report - operational list for a date range with
+  arrival status (arrived / not arrived) and host check-in, per gate/status.
+- **Visitors Expected Today** number card on the dashboard.
+- **Multi-day / overnight visits** - set `Visit End Date` on the request; the
+  pass validity spans the range.
+- **Host check-in / check-out** - `host_checkin` / `host_checkout` whitelisted
+  APIs (or the allow-on-submit fields) record when the host received the
+  visitor and when the meeting ended.
+- **ID proof verification** - Visitors carry an `id_proof_document` attachment
+  and an `id_proof_verified` flag.
+- **SMS channel** - best-effort SMS via Frappe's **SMS Settings** (Twilio /
+  Exotel / MSG91...): the visitor gets the pass number by SMS on approval, and
+  the host gets an SMS when the visitor arrives. Configure SMS Settings in
+  Frappe; failures are logged, never raised. WhatsApp can be routed through a
+  WhatsApp-capable gateway in SMS Settings.
+
 ## Dashboard: "Visitor Overview"
 
 - **Number cards**: Visitors On-Site Now (Active pass + entry scan, no exit
@@ -190,6 +220,11 @@ manual desk entries are distinguishable from hardware scans.
   contractor / escorted visits; **Gate** carries an optional `company`.
 - **Daily Visitor Register** script report - printable security logbook of all
   gate scans (per day / gate / status).
+- **Entry Pass Badge** now also prints the vehicle number, escort requirement
+  and company name.
+- **Visitor history** - all doctypes declare `links`, so every Visitor shows a
+  "Linked With" history (requests, passes, gate logs, blacklist records) and
+  deletion is blocked while linked documents exist.
 
 ---
 

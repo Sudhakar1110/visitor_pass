@@ -1,0 +1,186 @@
+[
+ {
+  "allow_delete": 0,
+  "allow_edit": 1,
+  "allow_multiple": 1,
+  "apply_document_permissions": 0,
+  "button_label": "Submit Visit Request",
+  "creation": "2026-01-01 00:00:00.000000",
+  "doc_type": "Visitor Request",
+  "docstatus": 0,
+  "doctype": "Web Form",
+  "idx": 1,
+  "introduction_text": "Raise a visitor entry pass request. Once approved, the visitor receives a QR pass by email and SMS.",
+  "is_standard": 0,
+  "login_required": 1,
+  "modified": "2026-01-01 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "visitor_pass_tracker",
+  "name": "request-a-visit",
+  "owner": "Administrator",
+  "published": 1,
+  "route": "request-a-visit",
+  "show_attachments": 0,
+  "show_sidebar": 0,
+  "success_message": "Your visit request has been submitted for approval.",
+  "title": "Request a Visit",
+  "web_form_fields": [
+   {
+    "fieldname": "visitor",
+    "fieldtype": "Link",
+    "label": "Visitor",
+    "options": "Visitor",
+    "parent": "request-a-visit",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form",
+    "reqd": 1
+   },
+   {
+    "fieldname": "purpose",
+    "fieldtype": "Select",
+    "label": "Purpose",
+    "options": "Meeting\nInterview\nDelivery\nMaintenance\nOther",
+    "parent": "request-a-visit",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   },
+   {
+    "fieldname": "visit_date",
+    "fieldtype": "Date",
+    "label": "Visit Date",
+    "parent": "request-a-visit",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form",
+    "reqd": 1
+   },
+   {
+    "fieldname": "visit_end_date",
+    "fieldtype": "Date",
+    "label": "Visit End Date (multi-day)",
+    "parent": "request-a-visit",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   },
+   {
+    "fieldname": "expected_in_time",
+    "fieldtype": "Time",
+    "label": "Expected In Time",
+    "parent": "request-a-visit",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   },
+   {
+    "fieldname": "expected_out_time",
+    "fieldtype": "Time",
+    "label": "Expected Out Time",
+    "parent": "request-a-visit",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   },
+   {
+    "fieldname": "location_gate",
+    "fieldtype": "Link",
+    "label": "Location / Gate",
+    "options": "Gate",
+    "parent": "request-a-visit",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   },
+   {
+    "fieldname": "vehicle_number",
+    "fieldtype": "Data",
+    "label": "Vehicle Number",
+    "parent": "request-a-visit",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   },
+   {
+    "fieldname": "notes",
+    "fieldtype": "Small Text",
+    "label": "Notes",
+    "parent": "request-a-visit",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   }
+  ]
+ },
+ {
+  "allow_delete": 0,
+  "allow_edit": 0,
+  "allow_multiple": 1,
+  "apply_document_permissions": 0,
+  "button_label": "Pre-register",
+  "creation": "2026-01-01 00:00:00.000000",
+  "doc_type": "Visitor",
+  "docstatus": 0,
+  "doctype": "Web Form",
+  "idx": 2,
+  "introduction_text": "Pre-register yourself as a visitor before your visit so your entry pass can be issued faster.",
+  "is_standard": 0,
+  "login_required": 0,
+  "modified": "2026-01-01 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "visitor_pass_tracker",
+  "name": "visitor-pre-registration",
+  "owner": "Administrator",
+  "published": 1,
+  "route": "visitor-pre-registration",
+  "show_attachments": 0,
+  "show_sidebar": 0,
+  "success_message": "Thank you! Your details have been registered. The host can now raise your visit request.",
+  "title": "Visitor Pre-Registration",
+  "web_form_fields": [
+   {
+    "fieldname": "visitor_name",
+    "fieldtype": "Data",
+    "label": "Full Name",
+    "parent": "visitor-pre-registration",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form",
+    "reqd": 1
+   },
+   {
+    "fieldname": "phone",
+    "fieldtype": "Data",
+    "label": "Phone",
+    "parent": "visitor-pre-registration",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form",
+    "reqd": 1
+   },
+   {
+    "fieldname": "email",
+    "fieldtype": "Data",
+    "label": "Email",
+    "parent": "visitor-pre-registration",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   },
+   {
+    "fieldname": "company_name",
+    "fieldtype": "Data",
+    "label": "Company",
+    "parent": "visitor-pre-registration",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   },
+   {
+    "fieldname": "id_proof_type",
+    "fieldtype": "Select",
+    "label": "ID Proof Type",
+    "options": "Aadhar\nPassport\nDriving License\nOther",
+    "parent": "visitor-pre-registration",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   },
+   {
+    "fieldname": "id_proof_number",
+    "fieldtype": "Data",
+    "label": "ID Proof Number",
+    "parent": "visitor-pre-registration",
+    "parentfield": "web_form_fields",
+    "parenttype": "Web Form"
+   }
+  ]
+ }
+]
