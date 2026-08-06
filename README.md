@@ -406,6 +406,35 @@ manual desk entries are distinguishable from hardware scans.
   and `Entry Pass` uses `PASS-.YYYY.-`.
 - Requires ERPNext 15 (Employee / Department / Address doctypes).
 
+## Demo data
+
+Populate the site with a full, realistic dataset (≥50 records per doctype -
+visitors, requests in every workflow state, entry passes with QR images, gate
+scan logs, gates and blacklist records) covering every editable field:
+
+```bash
+bench --site <sitename> execute visitor_pass_tracker.demo_data.create_demo_data
+```
+
+All demo records carry a `[DEMO DATA]` marker and can be wiped cleanly
+(re-running `create_demo_data` wipes first, so it is always deterministic):
+
+```bash
+bench --site <sitename> execute visitor_pass_tracker.demo_data.delete_demo_data
+```
+
+Notes:
+
+- Runs as Administrator (not whitelisted - console only, never the website).
+- Creates the ERPNext masters the app links to when a site is blank: a
+  Company, 6 addresses, 8 demo Employees used as hosts and an Employment
+  Type. Real employees are never used, so no real users get notified.
+- 10 of the demo visitors are blacklisted; 2 of their requests auto-reject
+  through the real workflow ("Reject: Blacklisted"), and the pending requests
+  are left for you to approve/reject from the desk to watch the workflow.
+- Demo automations are suppressed (expiry/overstay/reminder flags pre-set) so
+  the dataset stays quiet until you start acting on it.
+
 ## License
 
 MIT
