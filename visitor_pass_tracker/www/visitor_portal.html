@@ -89,6 +89,27 @@
 	.vp-qr-box img { width: 180px; height: 180px; image-rendering: pixelated; }
 	.vp-hint { font-size: 0.82rem; color: #6b7a93; }
 
+	.vp-live {
+		display: inline-flex; align-items: center; gap: 8px;
+		background: #eef6ff; border: 1px solid #cfe3fb; color: #1a5bb8;
+		border-radius: 999px; padding: 0.3rem 1rem;
+		font-size: 0.8rem; font-weight: 700; letter-spacing: 0.3px;
+	}
+	.vp-live .dot {
+		width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
+		background: #22c55e;
+		animation: vp-pulse 1.5s ease-in-out infinite;
+	}
+	.vp-live a {
+		color: #1a5bb8; text-decoration: underline; cursor: pointer;
+		font-weight: 600; margin-left: 2px;
+	}
+	.vp-live a:hover { color: #0d3d80; }
+	@keyframes vp-pulse {
+		0%, 100% { opacity: 1; transform: scale(1); }
+		50% { opacity: 0.35; transform: scale(0.75); }
+	}
+
 	#vp-print-area { display: none; }
 	@media print {
 		body * { visibility: hidden; }
@@ -105,8 +126,14 @@
 		<div class="vp-kicker">Visitor Pass Tracker</div>
 		<h1>Visitor Pass Portal</h1>
 		<p>Pre-register for your visit, track the status of your requests, and download
-		your entry pass QR code — all without logging in. Your registration instantly
-		creates a visit request for our team to process.</p>
+		your entry pass QR code — all without logging in. Keep this page open and we'll
+		notify you live the moment your visit is approved and your pass is ready.</p>
+	</div>
+
+	<div class="vp-live mb-3" id="vp-live-status" style="display:none">
+		<span class="dot"></span>
+		<span id="vp-live-text">Live updates are on — we'll notify you here.</span>
+		<a id="vp-live-stop">Stop</a>
 	</div>
 
 	<ul class="nav nav-pills vp-tabs mb-2" id="vpTabs" role="tablist">
@@ -378,6 +405,7 @@
 				"You are registered and a visit request has been created for you.";
 			renderNextSteps();
 			toast("Registration saved", "success");
+			startLive(res.phone || $("reg-phone").value);
 		}).catch(function (err) {
 			setBusy(btn, false);
 			toast(cleanErr(err), "error");
@@ -387,17 +415,14 @@
 	function renderNextSteps() {
 		var html = '<div class="col-md-6"><div class="card h-100"><div class="card-body">' +
 			'<h6 class="font-weight-bold">What happens next</h6>' +
-			'<p class="mb-2 vp-hint">A visit request draft has been created for you. ' +
-			"Once our team approves it, your pass and QR code reach you by email / SMS.</p>" +
+			'<p class="mb-2 vp-hint">A visit request has been created for you. ' +
+			"Keep this page open — we'll notify you live the moment it is approved " +
+			"and your entry pass QR is ready (also sent by email / SMS).</p>" +
 			'<button class="btn btn-outline-primary btn-sm" data-vp-goto="track">' +
 			"Track my visit</button></div></div></div>";
 		$("vp-next-steps").innerHTML = html;
 		$("vp-next-steps").querySelector("[data-vp-goto=track]").addEventListener("click", function () {
-			tabs.forEach(function (l) { l.classList.remove("active"); });
-			$("tab-track-link").classList.add("active");
-			["register", "track", "pass"].forEach(function (t) {
-				$("vp-" + t).style.display = (t === "track") ? "block" : "none";
-			});
+			switchTab("track");
 		});
 	}
 
@@ -412,6 +437,10 @@
 		}).then(function (res) {
 			setBusy(btn, false);
 			renderTrack(res);
+			// keep watching this phone - notify the visitor as status changes
+			if ((res.visits && res.visits.length) || (res.passes && res.passes.length)) {
+				startLive($("track-phone").value);
+			}
 		}).catch(function (err) {
 			setBusy(btn, false);
 			toast(cleanErr(err), "error");
@@ -468,11 +497,7 @@
 			b.addEventListener("click", function () {
 				$("pass-number").value = b.dataset.vpQr;
 				$("pass-phone").value = $("track-phone").value;
-				tabs.forEach(function (l) { l.classList.remove("active"); });
-				$("tab-pass-link").classList.add("active");
-				["register", "track", "pass"].forEach(function (t) {
-					$("vp-" + t).style.display = (t === "pass") ? "block" : "none";
-				});
+				switchTab("pass");
 				$("vp-pass-form").dispatchEvent(new Event("submit", { cancelable: true }));
 			});
 		});
@@ -544,6 +569,142 @@
 			"</div>";
 		window.print();
 	}
+
+	/* ---------------- live updates ---------------- */
+	var LIVE_INTERVAL_MS = 12000; // poll every 12s
+	var LIVE_MAX_POLLS = 150; // auto-stop after ~30 min
+	var live = {
+		timer: null,
+		polls: 0,
+		phone: "",
+		baseline: null,
+		shownPasses: {},
+		notifiedStates: {},
+		stopped: true
+	};
+
+	function switchTab(target) {
+		tabs.forEach(function (l) { l.classList.remove("active"); });
+		$("tab-" + target + "-link").classList.add("active");
+		["register", "track", "pass"].forEach(function (t) {
+			$("vp-" + t).style.display = (t === target) ? "block" : "none";
+		});
+	}
+
+	function startLive(phone) {
+		phone = (phone || "").trim();
+		if (!phone) { return; }
+		stopLive(true);
+		live.phone = phone;
+		live.polls = 0;
+		live.baseline = null;
+		live.shownPasses = {};
+		live.notifiedStates = {};
+		live.stopped = false;
+		$("vp-live-status").style.display = "inline-flex";
+		$("vp-live-text").textContent = "Live updates are on — we'll notify you here.";
+		pollLive(true); // take a baseline snapshot first
+		live.timer = setInterval(function () {
+			live.polls += 1;
+			if (live.polls > LIVE_MAX_POLLS) { stopLive(); return; }
+			pollLive(false);
+		}, LIVE_INTERVAL_MS);
+	}
+
+	function stopLive(keepQuiet) {
+		if (live.timer) { clearInterval(live.timer); live.timer = null; }
+		if (!keepQuiet) {
+			live.stopped = true;
+			$("vp-live-status").style.display = "none";
+		}
+	}
+
+	function liveSnapshot(res) {
+		var snap = { requests: {}, passes: {} };
+		(res.visits || []).forEach(function (v) { snap.requests[v.name] = v; });
+		(res.passes || []).forEach(function (p) { snap.passes[p.name] = p; });
+		return snap;
+	}
+
+	function pollLive(isBaseline) {
+		if (live.stopped || !live.phone) { return; }
+		api("visitor_pass_tracker.portal.track_visit", { phone: live.phone })
+			.then(function (res) {
+				if (live.stopped) { return; }
+				var snap = liveSnapshot(res);
+				if (!live.baseline || isBaseline) { live.baseline = snap; return; }
+
+				// a request's workflow state changed -> notify the visitor
+				Object.keys(snap.requests).forEach(function (name) {
+					var now = snap.requests[name];
+					var prev = live.baseline.requests[name];
+					if (!prev || prev.workflow_state === now.workflow_state) { return; }
+					var key = name + ":" + now.workflow_state;
+					if (live.notifiedStates[key]) { return; }
+					live.notifiedStates[key] = true;
+					var st = String(now.workflow_state || "").toLowerCase();
+					if (/approv|accept|issue/.test(st)) {
+						toast("Approved! Request " + name + " has been approved.", "success");
+					} else if (/reject|denied|declin/.test(st)) {
+						toast("Request " + name + " was " + now.workflow_state +
+							(now.rejection_reason ? " — " + now.rejection_reason : "") + ".", "error");
+					} else {
+						toast("Request " + name + " is now " + now.workflow_state + ".", "info");
+					}
+				});
+
+				// a new (or newly active) pass appeared -> show the QR right away
+				Object.keys(snap.passes).forEach(function (pname) {
+					var p = snap.passes[pname];
+					var prev = live.baseline.passes[pname];
+					if (prev && prev.status === p.status) { return; }
+					if (live.shownPasses[pname]) { return; }
+					var pst = String(p.status || "").toLowerCase();
+					if (/active|approved/.test(pst)) {
+						live.shownPasses[pname] = true;
+						if (p.has_qr) {
+							showLivePass(p);
+						} else {
+							toast("Your entry pass " + pname + " is ready — the QR will arrive by email / SMS.", "success");
+						}
+					} else if (/revok|cancel|expire/.test(pst) && prev) {
+						live.shownPasses[pname] = true;
+						toast("Pass " + pname + " is now " + p.status + ".", "error");
+					}
+				});
+
+				live.baseline = snap;
+			})
+			.catch(function () { /* transient errors are fine - the next poll retries */ });
+	}
+
+	function showLivePass(p) {
+		toast("Your entry pass is ready!", "success");
+		$("pass-number").value = p.name;
+		$("pass-phone").value = live.phone;
+		switchTab("pass");
+		$("vp-pass-form").dispatchEvent(new Event("submit", { cancelable: true }));
+	}
+
+	$("vp-live-stop").addEventListener("click", function () {
+		stopLive();
+		toast("Live updates paused", "info");
+	});
+
+	// pause polling while the tab is hidden, catch up instantly on return
+	document.addEventListener("visibilitychange", function () {
+		if (document.hidden) {
+			if (live.timer) { clearInterval(live.timer); live.timer = null; }
+			return;
+		}
+		if (live.timer || live.stopped || !live.phone) { return; }
+		pollLive(false); // immediate catch-up on return to the tab
+		live.timer = setInterval(function () {
+			live.polls += 1;
+			if (live.polls > LIVE_MAX_POLLS) { stopLive(); return; }
+			pollLive(false);
+		}, LIVE_INTERVAL_MS);
+	});
 
 	/* ---------------- helpers ---------------- */
 	function cleanErr(err) {
