@@ -46,7 +46,7 @@ cd apps/visitor_pass_tracker && git pull origin main && cd ../..
 # 2. sync doctypes, reports, pages and create the new DB indexes
 bench --site <sitename> migrate
 
-# 3. import fixtures (web forms, notifications, number cards, roles, workflow)
+# 3. import fixtures (web forms, notifications, client scripts, number cards, roles, workflow)
 bench --site <sitename> sync-fixtures
 
 # 4. remove the old code-sent pass emails so they don't double-send with the
@@ -316,6 +316,11 @@ manual desk entries are distinguishable from hardware scans.
   the host gets an SMS when the visitor arrives. Configure SMS Settings in
   Frappe; failures are logged, never raised. WhatsApp can be routed through a
   WhatsApp-capable gateway in SMS Settings.
+- **Resend Pass** - a one-click **Resend Pass** button on any **Active** Entry
+  Pass re-sends the QR + calendar invite by email to the host and visitor and
+  re-SMSes the pass number to the visitor (whitelisted `resend_pass` API,
+  returns a per-channel delivery summary). Handy when a visitor lost their QR
+  or never received the original email.
 
 ## Dashboard: "Visitor Overview"
 

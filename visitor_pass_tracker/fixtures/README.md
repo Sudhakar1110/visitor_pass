@@ -26,6 +26,8 @@ file order does not matter. The `fixtures` list in `hooks.py` is used by
 10. `web_form.json` — the Request a Visit + Visitor Pre-Registration web forms
 11. `custom_field.json` — intentionally empty: every field lives on an
     app-owned doctype, so no custom fields are required (kept for convention).
+12. `client_script.json` — the "Resend Pass" button on the Entry Pass form
+    (calls the whitelisted `entry_pass.resend_pass` API).
 
 Note: the "Visitor Reconciliation" script report is *not* a fixture. Its record is
 synced automatically from `report/visitor_reconciliation/visitor_reconciliation.json`

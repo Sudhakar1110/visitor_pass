@@ -121,6 +121,7 @@ fixtures = [
 		],
 	},
 	{"dt": "Web Form", "filters": [["name", "in", ["request-a-visit", "visitor-pre-registration"]]]},
+	{"dt": "Client Script", "filters": [["name", "=", "Entry Pass - Resend Pass"]]},
 	{"dt": "Dashboard", "filters": [["name", "=", "Visitor Overview"]]},
 	# Kept for completeness - no extra custom fields are required because every
 	# field lives on an app-owned doctype. Ship an empty custom_field.json.

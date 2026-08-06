@@ -2,6 +2,8 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from visitor_pass_tracker.utils import attach_qr_code, is_security_user, send_pass_notifications
+
 
 class EntryPass(Document):
 	def validate(self):
@@ -10,6 +12,48 @@ class EntryPass(Document):
 	def validate_validity_window(self):
 		if self.valid_from and self.valid_till and self.valid_till <= self.valid_from:
 			frappe.throw(_("Valid Till must be after Valid From"))
+
+
+@frappe.whitelist()
+def resend_pass(entry_pass):
+	"""Re-send an Active Entry Pass to the host and visitor: email with the QR
+	image + calendar invite, plus an SMS of the pass number (best-effort).
+
+	Used from the Entry Pass form ("Resend Pass" button) when a visitor lost
+	their QR code or never received the original email. Returns a summary of
+	what was delivered (`sent`) and what had no recipient / failed (`skipped`).
+	"""
+	if not entry_pass or not frappe.db.exists("Entry Pass", entry_pass):
+		frappe.throw(_("Entry Pass {0} not found").format(entry_pass))
+
+	doc = frappe.get_doc("Entry Pass", entry_pass)
+	if not doc.has_permission("read"):
+		frappe.throw(_("Not permitted to view this Entry Pass"), frappe.PermissionError)
+
+	# Re-sending fires paid emails/SMS - restrict to the security roles or the
+	# pass's own host / request owner (mirrors the send_sms_to_phone gate).
+	user = frappe.session.user
+	request_owner = None
+	if doc.visitor_request:
+		request_owner = frappe.db.get_value("Visitor Request", doc.visitor_request, "owner")
+	if not is_security_user(user) and not (
+		doc.host_user == user or (request_owner and request_owner == user)
+	):
+		frappe.throw(_("Not permitted to re-send this pass"), frappe.PermissionError)
+
+	if doc.status != "Active":
+		frappe.throw(
+			_("Only Active passes can be re-sent (this pass is {0}).").format(doc.status)
+		)
+
+	# make sure the QR image exists before it is attached to the email
+	if not doc.qr_code:
+		attach_qr_code(doc)
+		doc.reload()
+
+	sent, skipped = [], []
+	send_pass_notifications(doc, sent=sent, skipped=skipped)
+	return {"status": "ok", "entry_pass": doc.name, "sent": sent, "skipped": skipped}
 
 
 # ---------------------------------------------------------------------------

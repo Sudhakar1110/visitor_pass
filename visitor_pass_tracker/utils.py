@@ -486,26 +486,25 @@ def create_entry_pass_for_request(request):
 	# exists, so this guarantees the QR image is actually delivered.
 	send_pass_notifications(entry_pass)
 
-	# SMS the visitor the pass number (channel-ready; requires Frappe SMS
-	# Settings to be configured, failures are logged silently)
-	if request.get("visitor"):
-		visitor_phone = frappe.db.get_value("Visitor", request.get("visitor"), "phone")
-		if visitor_phone:
-			_send_sms(
-				visitor_phone,
-				_("Your entry pass {0} for {1} is approved. Present this pass number "
-				  "at gate {2}.").format(
-					entry_pass.name,
-					request.get("visit_date"),
-					request.get("location_gate") or "the main gate",
-				),
-			)
+	# The visitor SMS is also sent inside send_pass_notifications() above -
+	# a single code path covers both the initial send and the desk "Resend Pass"
 	return entry_pass
 
 
-def send_pass_notifications(entry_pass):
+def send_pass_notifications(entry_pass, sent=None, skipped=None):
 	"""Email the Entry Pass + QR to the host and the visitor after the QR code
-	has been generated. Failures are logged, never raised."""
+	has been generated, and SMS the visitor the pass number. Failures are
+	logged, never raised.
+
+	`sent` / `skipped` (optional lists) collect human-readable descriptions of
+	what was delivered / what had no recipient - used by the desk "Resend Pass"
+	action (entry_pass.resend_pass) to show a delivery summary.
+	"""
+	if sent is None:
+		sent = []
+	if skipped is None:
+		skipped = []
+
 	qr_code = frappe.db.get_value("Entry Pass", entry_pass.name, "qr_code")
 	subject = _("Entry Pass {0} generated for {1}").format(
 		entry_pass.name, entry_pass.visitor_name
@@ -546,9 +545,9 @@ def send_pass_notifications(entry_pass):
 	# host - email + in-app notification
 	host_user = entry_pass.host_user
 	if host_user:
-		try:
-			host_email = frappe.db.get_value("User", host_user, "email")
-			if host_email:
+		host_email = frappe.db.get_value("User", host_user, "email")
+		if host_email:
+			try:
 				frappe.sendmail(
 					recipients=host_email,
 					subject=subject,
@@ -557,11 +556,15 @@ def send_pass_notifications(entry_pass):
 					reference_name=entry_pass.name,
 					attachments=attachments,
 				)
-		except frappe.OutgoingEmailError:
-			frappe.log_error(
-				title=_("Visitor Pass Tracker: pass email failed"),
-				message=f"Entry Pass email to host {host_user} could not be sent.",
-			)
+				sent.append(_("host email ({0})").format(host_email))
+			except frappe.OutgoingEmailError:
+				frappe.log_error(
+					title=_("Visitor Pass Tracker: pass email failed"),
+					message=f"Entry Pass email to host {host_user} could not be sent.",
+				)
+				skipped.append(_("host email (sending failed)"))
+		else:
+			skipped.append(_("host email (no email on user {0})").format(host_user))
 		frappe.get_doc(
 			{
 				"doctype": "Notification Log",
@@ -573,6 +576,8 @@ def send_pass_notifications(entry_pass):
 				"type": "Alert",
 			}
 		).insert(ignore_permissions=True)
+	else:
+		skipped.append(_("host (no host user)"))
 
 	# visitor - email (no in-app log; the visitor is usually not a User)
 	visitor_email = frappe.db.get_value("Visitor", entry_pass.visitor, "email") if entry_pass.visitor else None
@@ -586,11 +591,35 @@ def send_pass_notifications(entry_pass):
 				reference_name=entry_pass.name,
 				attachments=attachments,
 			)
+			sent.append(_("visitor email ({0})").format(visitor_email))
 		except frappe.OutgoingEmailError:
 			frappe.log_error(
 				title=_("Visitor Pass Tracker: visitor pass email failed"),
 				message=f"Entry Pass email to visitor {entry_pass.visitor_name} could not be sent.",
 			)
+			skipped.append(_("visitor email (sending failed)"))
+	else:
+		skipped.append(_("visitor email (no address on file)"))
+
+	# visitor - SMS with the pass number (channel-ready; requires Frappe SMS
+	# Settings, failures are logged silently - the emails above still deliver)
+	visitor_phone = frappe.db.get_value("Visitor", entry_pass.visitor, "phone") if entry_pass.visitor else None
+	if visitor_phone:
+		ok = _send_sms(
+			visitor_phone,
+			_("Your entry pass {0} for {1} is approved. Present this pass number "
+			  "at gate {2}.").format(
+				entry_pass.name,
+				frappe.utils.getdate(entry_pass.valid_from),
+				entry_pass.location_gate or "the main gate",
+			),
+		)
+		if ok:
+			sent.append(_("visitor SMS ({0})").format(visitor_phone))
+		else:
+			skipped.append(_("visitor SMS (gateway failure)"))
+	else:
+		skipped.append(_("visitor SMS (no phone on file)"))
 
 
 def attach_qr_code(entry_pass):
@@ -652,19 +681,24 @@ def attach_qr_code(entry_pass):
 
 
 def _send_sms(phone, message):
-	"""Best-effort SMS via Frappe SMS Settings. Never raises - failures are
-	logged so email/in-app notifications still cover the recipient."""
+	"""Best-effort SMS via Frappe SMS Settings. Returns True when the SMS was
+	handed to the gateway, False otherwise. Never raises - failures are logged
+	so email/in-app notifications still cover the recipient."""
 	if not phone or not message:
-		return
+		return False
 	try:
 		from frappe.core.doctype.sms_settings.sms_settings import send_sms
 
+		# best-effort: reaching the gateway call without an exception is treated
+		# as handed off (send_sms return values vary across Frappe versions)
 		send_sms(receiver_list=[phone], msg=message)
+		return True
 	except Exception:
 		frappe.log_error(
 			title=_("Visitor Pass Tracker: SMS failed"),
 			message=frappe.get_traceback(),
 		)
+		return False
 
 
 def is_security_user(user=None):
@@ -855,6 +889,12 @@ def check_installation():
 	# 5) web forms
 	for name in ["request-a-visit", "visitor-pre-registration"]:
 		mark("web_form:{0}".format(name), frappe.db.exists("Web Form", name))
+
+	# 5b) client script fixtures
+	mark(
+		"client_script:Entry Pass - Resend Pass",
+		frappe.db.exists("Client Script", "Entry Pass - Resend Pass"),
+	)
 
 	# 6) number cards + dashboard
 	for name in ["Visitors On-Site Now", "Passes Expiring in Next Hour", "Visitors Expected Today"]:

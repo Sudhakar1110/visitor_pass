@@ -1,0 +1,11 @@
+[
+ {
+  "dt": "Entry Pass",
+  "doctype": "Client Script",
+  "enabled": 1,
+  "name": "Entry Pass - Resend Pass",
+  "script": "frappe.ui.form.on(\"Entry Pass\", {\n\trefresh(frm) {\n\t\tif (frm.is_new() || frm.doc.status !== \"Active\") {\n\t\t\treturn;\n\t\t}\n\t\tfrm.add_custom_button(__(\"Resend Pass\"), function () {\n\t\t\tfrappe.confirm(\n\t\t\t\t__(\"Re-send Entry Pass {0} to the host and visitor by email, and SMS the pass number to the visitor?\", [frm.doc.name]),\n\t\t\t\tfunction () {\n\t\t\t\t\tfrappe.call({\n\t\t\t\t\t\tmethod: \"visitor_pass_tracker.visitor_pass_tracker.doctype.entry_pass.entry_pass.resend_pass\",\n\t\t\t\t\t\targs: { entry_pass: frm.doc.name },\n\t\t\t\t\t\tfreeze: true,\n\t\t\t\t\t\tfreeze_message: __(\"Sending pass...\"),\n\t\t\t\t\t\tcallback: function (r) {\n\t\t\t\t\t\t\tif (!r.message || r.message.status !== \"ok\") {\n\t\t\t\t\t\t\t\treturn;\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tvar lines = [];\n\t\t\t\t\t\t\tif (r.message.sent && r.message.sent.length) {\n\t\t\t\t\t\t\t\tlines.push(__(\"Sent: {0}\", [r.message.sent.join(\", \")]));\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tif (r.message.skipped && r.message.skipped.length) {\n\t\t\t\t\t\t\t\tlines.push(__(\"No recipient available for: {0}\", [r.message.skipped.join(\", \")]));\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tif (!lines.length) {\n\t\t\t\t\t\t\t\tlines.push(__(\"Nothing to send - the pass has no recipients on file.\"));\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\tfrappe.msgprint(lines.join(\"<br>\"), __(\"Resend Pass\"));\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t}\n\t\t\t);\n\t\t});\n\t}\n});\n",
+  "script_type": "JS",
+  "view": "Form"
+ }
+]
