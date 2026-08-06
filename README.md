@@ -32,6 +32,39 @@ bench restart
 > `hooks.py` (`*/15 * * * *`). Enable the scheduler with
 > `bench --site <sitename> scheduler enable`.
 
+## Applying updates to an existing site
+
+Every release here (the 13 gap fixes, the 12 features, and the performance
+batch) is pushed to `main`. To bring an already-installed site up to date:
+
+```bash
+cd ~/frappe-bench
+
+# 1. pull the latest app code from GitHub (the app folder is a git checkout)
+cd apps/visitor_pass_tracker && git pull origin main && cd ../..
+
+# 2. sync doctypes, reports, pages and create the new DB indexes
+bench --site <sitename> migrate
+
+# 3. import fixtures (web forms, notifications, number cards, roles, workflow)
+bench --site <sitename> sync-fixtures
+
+# 4. remove the old code-sent pass emails so they don't double-send with the
+#    new in-code QR email (only needed once, for sites installed before the
+#    QR rewrite)
+bench --site <sitename> execute frappe.delete_doc --kwargs "{'doctype':'Notification','name':'Entry Pass Generated'}"
+bench --site <sitename> execute frappe.delete_doc --kwargs "{'doctype':'Notification','name':'Entry Pass Generated - Visitor'}"
+
+# 5. verify everything is present on the site
+bench --site <sitename> execute visitor_pass_tracker.utils.check_installation
+
+bench restart
+```
+
+The last command prints a per-component report (fields, workflow transitions,
+fixtures, web forms, reports, page, DB indexes) - every line should read
+**OK**, and `stale_notifications_to_delete` should show both as `false`.
+
 > **Workflow emails**: the Workflow's native `send_email_alert` emails the *role*
 > that can perform the next action (e.g. all Employees for the host step).
 > Targeted alerts to the specific host / Security role are handled by the

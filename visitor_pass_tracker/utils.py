@@ -693,6 +693,142 @@ def get_peak_visit_hours(**kwargs):
 
 
 # ---------------------------------------------------------------------------
+# Installation health check - run after migrate / sync-fixtures to confirm
+# every component of the app is present on the site:
+#   bench --site <sitename> execute visitor_pass_tracker.utils.check_installation
+# ---------------------------------------------------------------------------
+
+
+def check_installation():
+	"""Verify every app component (fields, workflow, fixtures, reports, page,
+	indexes) is present on the current site. Prints a readable report and
+	returns the full dict.
+
+	Run with: bench --site <sitename> execute visitor_pass_tracker.utils.check_installation
+	(not whitelisted - diagnostics only).
+	"""
+	report = {}
+
+	def mark(check, ok, detail=""):
+		report[check] = {"status": "ok" if ok else "missing", "detail": detail}
+
+	# 1) doctype fields added across the releases
+	fields = {
+		"Visitor Request": [
+			"visit_end_date",
+			"host_checkin_time",
+			"host_checkout_time",
+			"rejection_reason",
+		],
+		"Entry Pass": [
+			"visitor_email",
+			"company_name",
+			"vehicle_number",
+			"is_escort_required",
+			"revoked_by",
+			"revoked_on",
+		],
+		"Visitor": ["id_proof_document", "id_proof_verified"],
+		"Gate Log Entry": ["source"],
+	}
+	for doctype, names in fields.items():
+		meta = frappe.get_meta(doctype)
+		for fieldname in names:
+			mark("field:{0}.{1}".format(doctype, fieldname), meta.has_field(fieldname))
+
+	# 2) roles, workflow - Reject action + the 3 reject transitions
+	for role in ["Security Officer", "Department Head", "Reception"]:
+		mark("role:{0}".format(role), frappe.db.exists("Role", role))
+	mark("workflow_action:Reject Request", frappe.db.exists("Workflow Action Master", "Reject Request"))
+	if frappe.db.exists("Workflow", "Visitor Request Workflow"):
+		wf = frappe.get_doc("Workflow", "Visitor Request Workflow")
+		rejects = [t for t in wf.transitions if t.action == "Reject Request"]
+		mark("workflow:Reject transitions", len(rejects) == 3, "found {0}".format(len(rejects)))
+	else:
+		mark("workflow:Visitor Request Workflow", False)
+
+	# 3) notification fixtures (the two Entry Pass ones are sent from code now)
+	for name in [
+		"Visitor Request Pending Host Approval",
+		"Visitor Request Approved",
+		"Visitor Request Rejected - Blacklist",
+		"Visitor Request Rejected",
+		"Visitor Arrived",
+		"Unauthorized Scan Detected",
+	]:
+		mark("notification:{0}".format(name), frappe.db.exists("Notification", name))
+
+	# 4) stale notifications that should be deleted (would double-send)
+	stale = {}
+	for name in ["Entry Pass Generated", "Entry Pass Generated - Visitor"]:
+		present = bool(frappe.db.exists("Notification", name))
+		stale[name] = present
+		report["stale_notification:{0}".format(name)] = {
+			"status": "delete me" if present else "ok",
+			"detail": "old fixture - remove to avoid double emails" if present else "",
+		}
+	report["stale_notifications_to_delete"] = stale
+
+	# 5) web forms
+	for name in ["request-a-visit", "visitor-pre-registration"]:
+		mark("web_form:{0}".format(name), frappe.db.exists("Web Form", name))
+
+	# 6) number cards + dashboard
+	for name in ["Visitors On-Site Now", "Passes Expiring in Next Hour", "Visitors Expected Today"]:
+		mark("number_card:{0}".format(name), frappe.db.exists("Number Card", name))
+	mark("dashboard:Visitor Overview", frappe.db.exists("Dashboard", "Visitor Overview"))
+
+	# 7) print format, reports + page
+	mark("print_format:Entry Pass Badge", frappe.db.exists("Print Format", "Entry Pass Badge"))
+	for name in ["Visitor Reconciliation", "Daily Visitor Register", "Expected Visitors"]:
+		mark("report:{0}".format(name), frappe.db.exists("Report", name))
+	mark("page:gate-scanner", frappe.db.exists("Page", "gate-scanner"))
+
+	# 7b) scheduler cron registered in hooks
+	hooks_cron = frappe.get_hooks("scheduler_events") or {}
+	cron = (hooks_cron.get("cron") or {}).get("*/15 * * * *") or []
+	mark(
+		"scheduler:cron */15",
+		"visitor_pass_tracker.utils.run_pass_expiry_checks" in cron,
+		", ".join(cron) or "none",
+	)
+
+	# 8) DB indexes (created by bench migrate for search_index fields)
+	for table, columns in {
+		"tabGate Log Entry": ["scan_time", "entry_pass"],
+		"tabEntry Pass": ["valid_till"],
+	}.items():
+		try:
+			existing = {
+				r["Column_name"]
+				for r in frappe.db.sql("SHOW INDEX FROM `{0}`".format(table), as_dict=True)
+			}
+		except Exception:
+			existing = set()
+		for column in columns:
+			mark("index:{0}.{1}".format(table, column), column in existing)
+
+	# readable output
+	lines = ["[Visitor Pass Tracker] installation check"]
+	missing = []
+	for key, value in sorted(report.items()):
+		if isinstance(value, dict) and "status" in value:
+			status = value["status"]
+			detail = (" - " + value["detail"]) if value.get("detail") else ""
+			lines.append("{0:55} {1}{2}".format(key, status.upper(), detail))
+			if status != "ok":
+				missing.append(key)
+	lines.append("")
+	if missing:
+		lines.append("MISSING: " + ", ".join(missing))
+	else:
+		lines.append("ALL CHECKS PASSED")
+	print("\n".join(lines))
+
+	return report
+
+
+# ---------------------------------------------------------------------------
 # Data-visibility scoping - shared by the permission hooks (Entry Pass / Gate
 # Log Entry) and the script reports. Non-security users are restricted to
 # their own visits (Employee/host) or their department's visits (Department
