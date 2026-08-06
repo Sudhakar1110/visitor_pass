@@ -266,6 +266,56 @@ def _merged_filter():
 
 
 # ---------------------------------------------------------------------------
+# Pre-registration - auto-create a Draft Visitor Request for the desk
+# ---------------------------------------------------------------------------
+
+
+def ensure_draft_visitor_request(visitor):
+	"""Create a Draft Visitor Request for a pre-registered visitor so the desk
+	picks it up immediately (Reception completes the host / gate / window and
+	submits it through the normal workflow).
+
+	Idempotent: while any open (non-Rejected) request exists for the visitor,
+	the existing one is returned and nothing new is created. Never raises -
+	pre-registration must never fail because of this."""
+	if not visitor or not frappe.db.exists("Visitor", visitor):
+		return None
+	try:
+		existing = frappe.db.get_value(
+			"Visitor Request",
+			filters={
+				"visitor": visitor,
+				"docstatus": ["<", 2],
+				"workflow_state": ["not in", ["Rejected"]],
+			},
+			pluck="name",
+		)
+		if existing:
+			return existing
+
+		request = frappe.get_doc(
+			{
+				"doctype": "Visitor Request",
+				"visitor": visitor,
+				"purpose": "Meeting",
+				"visit_date": getdate(),
+				"expected_in_time": "09:00:00",
+				"expected_out_time": "18:00:00",
+				"notes": _("Auto-created from visitor pre-registration."),
+			}
+		)
+		# host is intentionally blank - Reception assigns it in the desk
+		request.insert(ignore_permissions=True, ignore_mandatory=True)
+		return request.name
+	except Exception:
+		frappe.log_error(
+			title=_("Visitor Pass Tracker: draft request creation failed"),
+			message=frappe.get_traceback(),
+		)
+		return None
+
+
+# ---------------------------------------------------------------------------
 # Blacklist auto-check
 # ---------------------------------------------------------------------------
 

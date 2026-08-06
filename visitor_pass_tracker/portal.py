@@ -18,7 +18,7 @@ import base64
 import frappe
 from frappe import _
 
-from .utils import _merged_filter, _normalize_phone
+from .utils import _merged_filter, _normalize_phone, ensure_draft_visitor_request
 
 
 def _public_visitor(phone):
@@ -123,6 +123,8 @@ def register_visitor(
 
 	if existing:
 		doc = frappe.get_doc("Visitor", existing)
+		# make sure the desk has an open request for this visitor too
+		request_name = ensure_draft_visitor_request(doc.name)
 		changed = []
 		if not doc.email and email:
 			doc.email = email
@@ -143,7 +145,9 @@ def register_visitor(
 			"visitor": doc.name,
 			"visitor_name": doc.visitor_name,
 			"phone": doc.phone,
-			"message": _("Your details are already registered."),
+			"request": request_name,
+			"message": _("Your details are registered. A visit request has been created "
+						"and is being processed - you can track it with your phone number."),
 		}
 
 	doc = frappe.get_doc(
@@ -158,13 +162,18 @@ def register_visitor(
 		}
 	)
 	doc.insert(ignore_permissions=True)
+	# after_insert already created a Draft Visitor Request for the Guest session -
+	# fetch it (or create one defensively) so the portal can report it
+	request_name = ensure_draft_visitor_request(doc.name)
 
 	return {
 		"status": "created",
 		"visitor": doc.name,
 		"visitor_name": doc.visitor_name,
 		"phone": doc.phone,
-		"message": _("You are registered. Ask your host to raise a visit request for you."),
+		"request": request_name,
+		"message": _("You are registered! A visit request has been created for you and "
+						"our team will complete it. Track it anytime with your phone number."),
 	}
 
 

@@ -115,7 +115,7 @@
   "docstatus": 0,
   "doctype": "Web Form",
   "idx": 2,
-  "introduction_text": "Pre-register yourself as a visitor before your visit so your entry pass can be issued faster.",
+  "introduction_text": "Pre-register yourself as a visitor. A visit request is created automatically and our team will process it.",
   "is_standard": 0,
   "login_required": 0,
   "modified": "2026-01-01 00:00:00.000000",
@@ -127,7 +127,7 @@
   "route": "visitor-pre-registration",
   "show_attachments": 0,
   "show_sidebar": 0,
-  "success_message": "Thank you! Your details have been registered. The host can now raise your visit request.",
+  "success_message": "Thank you! Your details have been registered and a visit request has been created for you. Our team will process it.",
   "title": "Visitor Pre-Registration",
   "web_form_fields": [
    {

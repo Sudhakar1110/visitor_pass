@@ -276,7 +276,15 @@ manual desk entries are distinguishable from hardware scans.
 - **Public Visitor Portal** (`/visitor_portal`) - a guest-accessible website page
   backed by `allow_guest=True` APIs (`visitor_pass_tracker.portal`):
   - **Pre-Register** - creates/updates the Visitor master (deduplicated by
-    phone; the visitor's linked ERPNext Contact is auto-created).
+    phone; the visitor's linked ERPNext Contact is auto-created) **and
+    auto-creates a Draft Visitor Request in the desk** so Reception/Security
+    can complete the host, gate and window and submit it through the normal
+    workflow (idempotent - no second request while one is already open). The
+    same applies to the public `visitor-pre-registration` web form; visitors
+    created from the desk itself are never auto-requested. Note: since `Host`
+    is a mandatory field, the auto-created draft sits in the desk as **Draft**
+    and can only be submitted after Reception assigns the host (and adjusts
+    the gate/window if needed).
   - **Track My Visit** - a visitor can look up only their own requests/passes
     by phone, with live workflow status (approved / pending / rejected).
   - **My Pass (QR)** - downloads / prints the QR badge for any pass the phone

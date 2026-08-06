@@ -12,6 +12,19 @@ class Visitor(Document):
 
 	def after_insert(self):
 		self.create_linked_contact()
+		self.create_draft_request_for_guest()
+
+	def create_draft_request_for_guest(self):
+		"""Pre-registration from the public website (portal Pre-Register tab or
+		the visitor-pre-registration web form) auto-creates a Draft Visitor
+		Request so the desk sees it immediately. Visitors created from the desk
+		(by Security / Reception / System Manager sessions) are left untouched -
+		this only fires for Guest sessions."""
+		if frappe.session.user != "Guest":
+			return
+		from visitor_pass_tracker.utils import ensure_draft_visitor_request
+
+		ensure_draft_visitor_request(self.name)
 
 	def create_linked_contact(self):
 		"""Auto-create an ERPNext Contact for known external visitors so they can

@@ -105,8 +105,8 @@
 		<div class="vp-kicker">Visitor Pass Tracker</div>
 		<h1>Visitor Pass Portal</h1>
 		<p>Pre-register for your visit, track the status of your requests, and download
-		your entry pass QR code — all without logging in. Your host raises the visit
-		request on your behalf once you're registered.</p>
+		your entry pass QR code — all without logging in. Your registration instantly
+		creates a visit request for our team to process.</p>
 	</div>
 
 	<ul class="nav nav-pills vp-tabs mb-2" id="vpTabs" role="tablist">
@@ -375,7 +375,7 @@
 				res.status === "created" ? "You're registered, " + (res.visitor_name || "") + "!" :
 				"We found your existing registration.";
 			$("vp-register-msg").textContent = res.message ||
-				"Ask your host to raise a visit request for you.";
+				"You are registered and a visit request has been created for you.";
 			renderNextSteps();
 			toast("Registration saved", "success");
 		}).catch(function (err) {
@@ -386,9 +386,9 @@
 
 	function renderNextSteps() {
 		var html = '<div class="col-md-6"><div class="card h-100"><div class="card-body">' +
-			'<h6 class="font-weight-bold">Next step</h6>' +
-			'<p class="mb-2 vp-hint">Your host raises the visit request. Once approved, ' +
-			"the pass and QR code reach you by email / SMS.</p>" +
+			'<h6 class="font-weight-bold">What happens next</h6>' +
+			'<p class="mb-2 vp-hint">A visit request draft has been created for you. ' +
+			"Once our team approves it, your pass and QR code reach you by email / SMS.</p>" +
 			'<button class="btn btn-outline-primary btn-sm" data-vp-goto="track">' +
 			"Track my visit</button></div></div></div>";
 		$("vp-next-steps").innerHTML = html;
