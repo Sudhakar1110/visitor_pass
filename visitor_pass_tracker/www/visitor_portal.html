@@ -2,101 +2,386 @@
 
 {% block style %}
 <style>
-	.vp-hero {
-		background: linear-gradient(135deg, #1a2a4a 0%, #2490ef 100%);
-		border-radius: 14px;
-		color: #fff;
-		padding: 2.2rem 2rem;
-		margin-bottom: 1.8rem;
-		box-shadow: 0 8px 24px rgba(36, 144, 239, 0.25);
-	}
-	.vp-hero .vp-kicker {
-		text-transform: uppercase;
-		letter-spacing: 2px;
-		font-size: 0.75rem;
-		opacity: 0.85;
-	}
-	.vp-hero h1 { font-size: 1.9rem; font-weight: 700; margin: 0.2rem 0 0.4rem; }
-	.vp-hero p { margin: 0; opacity: 0.92; max-width: 640px; }
-
-	.vp-card {
-		border: 1px solid #e8edf4;
-		border-radius: 12px;
-		box-shadow: 0 2px 10px rgba(26, 42, 74, 0.06);
-		padding: 1.6rem;
-		background: #fff;
+	:root {
+		--vp-ink: #e8ecf7;
+		--vp-muted: #8b95b5;
+		--vp-cyan: #22d3ee;
+		--vp-violet: #8b5cf6;
+		--vp-blue: #3b82f6;
+		--vp-glass: rgba(255, 255, 255, 0.045);
+		--vp-line: rgba(255, 255, 255, 0.1);
+		--vp-green: #34d399;
+		--vp-red: #fb7185;
+		--vp-amber: #fbbf24;
 	}
 
-	.vp-status {
-		display: inline-block;
-		padding: 0.22rem 0.7rem;
-		border-radius: 999px;
-		font-size: 0.72rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.4px;
+	.vp-page {
+		background:
+			radial-gradient(1100px 500px at 12% -8%, rgba(139, 92, 246, 0.22), transparent 60%),
+			radial-gradient(900px 480px at 95% 0%, rgba(34, 211, 238, 0.16), transparent 55%),
+			linear-gradient(160deg, #070b1a 0%, #0b1226 45%, #0d1633 100%);
+		border-radius: 22px;
+		padding: clamp(1.2rem, 3.5vw, 2.6rem);
+		color: var(--vp-ink);
+		position: relative;
+		overflow: hidden;
+		box-shadow: 0 24px 60px rgba(4, 8, 24, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 	}
-	.vp-status.approved, .vp-status.used, .vp-status.completed { background: #dff5e4; color: #1c7c3c; }
-	.vp-status.rejected, .vp-status.revoked { background: #fbe4e4; color: #c0392b; }
-	.vp-status.pending { background: #fff3d6; color: #a06a00; }
-	.vp-status.expired { background: #e8edf4; color: #5d6b85; }
-	.vp-status.draft, .vp-status.other { background: #ececf3; color: #6b6b83; }
-
-	.vp-timeline { position: relative; padding-left: 1.4rem; }
-	.vp-timeline::before {
+	.vp-page::before {
 		content: "";
 		position: absolute;
-		left: 6px; top: 8px; bottom: 8px;
-		width: 2px; background: #e3e9f2;
+		inset: 0;
+		background-image:
+			linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+		background-size: 46px 46px;
+		mask-image: radial-gradient(720px 420px at 50% 0%, #000 30%, transparent 75%);
+		pointer-events: none;
 	}
-	.vp-timeline .vp-item { position: relative; padding: 0.7rem 0 0.7rem 0.6rem; }
-	.vp-timeline .vp-item::before {
+
+	/* ---------------- hero ---------------- */
+	.vp-hero {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: clamp(1rem, 3vw, 2.4rem);
+		padding: clamp(1rem, 3vw, 2rem);
+		margin-bottom: 1.6rem;
+		background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+		border: 1px solid var(--vp-line);
+		border-radius: 18px;
+		overflow: hidden;
+	}
+	.vp-hero::before, .vp-hero::after {
 		content: "";
-		position: absolute; left: -1.34rem; top: 1.15rem;
-		width: 12px; height: 12px; border-radius: 50%;
-		background: #2490ef; border: 2px solid #fff;
-		box-shadow: 0 0 0 2px #2490ef;
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(60px);
+		animation: vp-drift 14s ease-in-out infinite alternate;
+		pointer-events: none;
 	}
-	.vp-timeline .vp-item.alt::before { background: #8b5cf6; box-shadow: 0 0 0 2px #8b5cf6; }
+	.vp-hero::before { width: 320px; height: 320px; left: -90px; top: -140px; background: rgba(139, 92, 246, 0.4); }
+	.vp-hero::after { width: 260px; height: 260px; right: 10%; bottom: -150px; background: rgba(34, 211, 238, 0.3); animation-delay: -6s; }
 
-	.vp-pass { border-left: 4px solid #2490ef; }
-	.vp-pass.revoked, .vp-pass.expired { border-left-color: #c0392b; }
-	.vp-pass.used { border-left-color: #1c7c3c; }
-
-	.vp-toast {
-		position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
-		z-index: 1080; min-width: 320px; max-width: 92vw;
-		border-radius: 10px; padding: 0.8rem 1.1rem; font-weight: 600;
-		box-shadow: 0 6px 20px rgba(0,0,0,0.18); display: none;
-		text-align: center;
+	.vp-hero-copy { position: relative; z-index: 1; flex: 1 1 auto; }
+	.vp-kicker {
+		display: inline-flex; align-items: center; gap: 7px;
+		text-transform: uppercase; letter-spacing: 3.5px;
+		font-size: 0.68rem; font-weight: 700;
+		color: var(--vp-cyan);
+		border: 1px solid rgba(34, 211, 238, 0.3);
+		background: rgba(34, 211, 238, 0.08);
+		border-radius: 999px;
+		padding: 0.3rem 0.85rem;
+		margin-bottom: 0.9rem;
 	}
-	.vp-toast.success { background: #1c7c3c; color: #fff; }
-	.vp-toast.error { background: #c0392b; color: #fff; }
-	.vp-toast.info { background: #1a2a4a; color: #fff; }
+	.vp-kicker .vp-kdot {
+		width: 6px; height: 6px; border-radius: 50%;
+		background: var(--vp-cyan);
+		box-shadow: 0 0 10px var(--vp-cyan);
+		animation: vp-blink 1.6s ease-in-out infinite;
+	}
+	.vp-hero h1 {
+		font-size: clamp(1.7rem, 4.2vw, 2.5rem);
+		font-weight: 800; letter-spacing: -0.5px;
+		margin: 0 0 0.55rem;
+		background: linear-gradient(90deg, #f0f4ff 10%, var(--vp-cyan) 55%, var(--vp-violet) 100%);
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+		color: transparent;
+	}
+	.vp-hero p { margin: 0; color: var(--vp-muted); max-width: 560px; font-size: 0.95rem; line-height: 1.6; }
+	.vp-hero p b { color: var(--vp-ink); font-weight: 600; }
 
-	.vp-qr-box { background: #fff; border: 2px dashed #c9d6e8; border-radius: 12px; padding: 1.2rem; }
-	.vp-qr-box img { width: 180px; height: 180px; image-rendering: pixelated; }
-	.vp-hint { font-size: 0.82rem; color: #6b7a93; }
+	/* floating digital pass card (decorative) */
+	.vp-pass-mini {
+		position: relative; z-index: 1; flex: 0 0 auto;
+		width: 158px; border-radius: 16px; padding: 0.85rem;
+		background: linear-gradient(150deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03));
+		border: 1px solid rgba(255,255,255,0.16);
+		box-shadow: 0 14px 34px rgba(0,0,0,0.4);
+		animation: vp-float 5s ease-in-out infinite;
+		backdrop-filter: blur(6px);
+	}
+	.vp-pass-mini .vp-pm-top {
+		display: flex; justify-content: space-between; align-items: center;
+		font-size: 0.55rem; letter-spacing: 1.5px; color: var(--vp-cyan);
+		text-transform: uppercase; font-weight: 800;
+	}
+	.vp-pass-mini .vp-pm-name {
+		margin: 0.55rem 0 0.4rem; font-size: 0.78rem; font-weight: 700; color: #fff;
+		white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+	}
+	.vp-pass-mini .vp-pm-chip {
+		width: 26px; height: 19px; border-radius: 4px;
+		background: linear-gradient(135deg, #f5d76e, #c9a227);
+		box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25);
+		margin-bottom: 0.5rem;
+	}
+	.vp-pass-mini .vp-pm-qr {
+		width: 100%; aspect-ratio: 1;
+		border-radius: 8px;
+		background:
+			linear-gradient(90deg, transparent 44%, rgba(255,255,255,0.14) 46%, rgba(255,255,255,0.14) 54%, transparent 56%),
+			repeating-linear-gradient(0deg, #0d1226 0 3px, #1c2547 3px 6px),
+			repeating-linear-gradient(90deg, #0d1226 0 3px, #1c2547 3px 6px);
+		background-blend-mode: screen;
+		border: 1px solid rgba(255,255,255,0.14);
+	}
+	@media (max-width: 575px) { .vp-pass-mini { display: none; } }
 
+	/* ---------------- live pill ---------------- */
 	.vp-live {
-		display: inline-flex; align-items: center; gap: 8px;
-		background: #eef6ff; border: 1px solid #cfe3fb; color: #1a5bb8;
-		border-radius: 999px; padding: 0.3rem 1rem;
-		font-size: 0.8rem; font-weight: 700; letter-spacing: 0.3px;
+		position: relative; z-index: 2;
+		display: inline-flex; align-items: center; gap: 10px;
+		background: var(--vp-glass);
+		border: 1px solid rgba(34, 211, 238, 0.35);
+		color: var(--vp-cyan);
+		border-radius: 999px;
+		padding: 0.42rem 1.05rem;
+		font-size: 0.8rem; font-weight: 700; letter-spacing: 0.4px;
+		margin-bottom: 1.4rem;
+		backdrop-filter: blur(8px);
 	}
 	.vp-live .dot {
 		width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto;
-		background: #22c55e;
-		animation: vp-pulse 1.5s ease-in-out infinite;
+		background: var(--vp-green);
+		box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
+		animation: vp-ping 1.6s ease-out infinite;
 	}
 	.vp-live a {
-		color: #1a5bb8; text-decoration: underline; cursor: pointer;
-		font-weight: 600; margin-left: 2px;
+		color: var(--vp-muted); text-decoration: underline; cursor: pointer;
+		font-weight: 600; margin-left: 4px; transition: color 0.2s;
 	}
-	.vp-live a:hover { color: #0d3d80; }
-	@keyframes vp-pulse {
-		0%, 100% { opacity: 1; transform: scale(1); }
-		50% { opacity: 0.35; transform: scale(0.75); }
+	.vp-live a:hover { color: var(--vp-cyan); }
+
+	/* ---------------- cards ---------------- */
+	.vp-card {
+		background: var(--vp-glass);
+		border: 1px solid var(--vp-line);
+		border-radius: 16px;
+		padding: 1.5rem;
+		box-shadow: 0 14px 34px rgba(3, 7, 20, 0.35);
+		backdrop-filter: blur(10px);
+		transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+	}
+	.vp-card:hover { border-color: rgba(139, 92, 246, 0.35); }
+	.vp-card h5 { font-weight: 800; letter-spacing: -0.2px; margin-bottom: 0.25rem; }
+	.vp-card h6 { font-weight: 700; color: var(--vp-muted); text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.72rem; }
+
+	.vp-hint { font-size: 0.8rem; color: var(--vp-muted); }
+
+	/* ---------------- form ---------------- */
+	.vp-card label {
+		font-size: 0.7rem; font-weight: 700; letter-spacing: 1.2px;
+		text-transform: uppercase; color: var(--vp-muted); margin-bottom: 0.35rem;
+	}
+	.vp-card .form-control {
+		background: rgba(10, 16, 36, 0.7);
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		border-radius: 10px;
+		color: var(--vp-ink);
+		padding: 0.55rem 0.85rem;
+		transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+	}
+	.vp-card .form-control:focus {
+		background: rgba(12, 19, 42, 0.9);
+		border-color: var(--vp-violet);
+		box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+		color: var(--vp-ink);
+	}
+	.vp-card .form-control::placeholder { color: #5a6488; }
+	.vp-card select.form-control {
+		appearance: none;
+		-webkit-appearance: none;
+		background-image:
+			linear-gradient(45deg, transparent 50%, var(--vp-muted) 50%),
+			linear-gradient(135deg, var(--vp-muted) 50%, transparent 50%);
+		background-position:
+			calc(100% - 18px) 55%,
+			calc(100% - 13px) 55%;
+		background-size: 5px 5px, 5px 5px;
+		background-repeat: no-repeat;
+		padding-right: 2.2rem;
+	}
+	.vp-card select.form-control option { background: #0d1530; color: var(--vp-ink); }
+
+	.vp-btn-primary {
+		position: relative;
+		display: inline-block;
+		width: 100%;
+		border: none;
+		border-radius: 11px;
+		padding: 0.72rem 1.2rem;
+		font-weight: 800; letter-spacing: 0.6px;
+		color: #fff;
+		background: linear-gradient(120deg, var(--vp-violet) 0%, var(--vp-blue) 55%, var(--vp-cyan) 130%);
+		background-size: 180% 100%;
+		background-position: 0% 0%;
+		box-shadow: 0 10px 26px rgba(124, 93, 250, 0.35);
+		transition: transform 0.18s, box-shadow 0.25s, background-position 0.4s;
+		cursor: pointer;
+	}
+	.vp-btn-primary:hover { transform: translateY(-2px); background-position: 100% 0%; box-shadow: 0 14px 32px rgba(34, 211, 238, 0.3); }
+	.vp-btn-primary:active { transform: translateY(0); }
+	.vp-btn-primary:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+
+	.vp-btn-ghost {
+		display: inline-block;
+		border: 1px solid rgba(255, 255, 255, 0.18);
+		border-radius: 9px;
+		padding: 0.38rem 0.85rem;
+		font-size: 0.8rem; font-weight: 700;
+		color: var(--vp-ink);
+		background: rgba(255, 255, 255, 0.05);
+		transition: background 0.2s, border-color 0.2s, transform 0.18s;
+		cursor: pointer;
+	}
+	.vp-btn-ghost:hover { background: rgba(255, 255, 255, 0.11); border-color: var(--vp-cyan); transform: translateY(-1px); }
+
+	.vp-register-result {
+		display: none;
+		margin-top: 1rem;
+		border-radius: 12px;
+		padding: 0.85rem 1rem;
+		border: 1px solid rgba(52, 211, 153, 0.35);
+		background: rgba(52, 211, 153, 0.09);
+		color: #d7f8ea;
+	}
+	.vp-register-result b { color: var(--vp-green); }
+
+	/* ---------------- status chips ---------------- */
+	.vp-status {
+		display: inline-flex; align-items: center; gap: 6px;
+		padding: 0.26rem 0.7rem;
+		border-radius: 999px;
+		font-size: 0.68rem; font-weight: 800;
+		text-transform: uppercase; letter-spacing: 0.7px;
+		border: 1px solid;
+		background: rgba(255, 255, 255, 0.05);
+	}
+	.vp-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+	.vp-status.approved, .vp-status.used, .vp-status.completed { color: var(--vp-green); border-color: rgba(52,211,153,0.35); }
+	.vp-status.approved::before, .vp-status.used::before, .vp-status.completed::before { background: var(--vp-green); box-shadow: 0 0 8px var(--vp-green); }
+	.vp-status.rejected, .vp-status.revoked { color: var(--vp-red); border-color: rgba(251,113,133,0.35); }
+	.vp-status.rejected::before, .vp-status.revoked::before { background: var(--vp-red); box-shadow: 0 0 8px var(--vp-red); }
+	.vp-status.pending { color: var(--vp-amber); border-color: rgba(251,191,36,0.35); }
+	.vp-status.pending::before { background: var(--vp-amber); box-shadow: 0 0 8px var(--vp-amber); }
+	.vp-status.expired, .vp-status.other, .vp-status.draft { color: var(--vp-muted); border-color: var(--vp-line); }
+	.vp-status.expired::before, .vp-status.other::before, .vp-status.draft::before { background: var(--vp-muted); }
+
+	/* ---------------- timeline ---------------- */
+	.vp-timeline { position: relative; padding-left: 1.5rem; }
+	.vp-timeline::before {
+		content: ""; position: absolute;
+		left: 6px; top: 8px; bottom: 8px; width: 2px;
+		background: linear-gradient(180deg, var(--vp-violet), var(--vp-cyan));
+		opacity: 0.5;
+	}
+	.vp-timeline .vp-item { position: relative; padding: 0.75rem 0 0.75rem 0.6rem; animation: vp-fadeup 0.4s ease both; }
+	.vp-timeline .vp-item::before {
+		content: ""; position: absolute; left: -1.44rem; top: 1.2rem;
+		width: 12px; height: 12px; border-radius: 50%;
+		background: var(--vp-violet);
+		border: 2px solid #0b1226;
+		box-shadow: 0 0 0 2px var(--vp-violet), 0 0 14px rgba(139, 92, 246, 0.8);
+	}
+	.vp-timeline .vp-item.alt::before { background: var(--vp-cyan); box-shadow: 0 0 0 2px var(--vp-cyan), 0 0 14px rgba(34, 211, 238, 0.8); }
+	.vp-timeline .vp-item .vp-reason { color: var(--vp-red); font-size: 0.8rem; margin-top: 0.3rem; }
+
+	/* ---------------- pass cards ----------------
+	   Higher-specificity selectors so the dark theme always wins over
+	   Bootstrap's white .card background regardless of CSS load order. */
+	#vp-dash-passes .card.vp-pass {
+		border: 1px solid var(--vp-line);
+		border-left: 3px solid var(--vp-violet);
+		border-radius: 14px;
+		background: rgba(12, 18, 40, 0.55);
+		box-shadow: 0 14px 30px rgba(3, 7, 20, 0.3);
+		transition: transform 0.22s, border-color 0.25s, box-shadow 0.25s;
+	}
+	#vp-dash-passes .card.vp-pass:hover { transform: translateY(-2px); box-shadow: 0 16px 38px rgba(3, 7, 20, 0.5); }
+	#vp-dash-passes .card.vp-pass.revoked, #vp-dash-passes .card.vp-pass.expired { border-left-color: var(--vp-red); }
+	#vp-dash-passes .card.vp-pass.used { border-left-color: var(--vp-green); }
+	#vp-dash-passes .card-body { background: transparent; color: var(--vp-ink); }
+
+	.vp-qr-box {
+		position: relative;
+		background: #0a0f24;
+		border: 1.5px dashed rgba(139, 92, 246, 0.5);
+		border-radius: 14px;
+		padding: 1.2rem;
+		overflow: hidden;
+		animation: vp-fadeup 0.5s ease both;
+	}
+	.vp-qr-box::after {
+		content: "";
+		position: absolute;
+		left: 8px; right: 8px; height: 2px;
+		background: linear-gradient(90deg, transparent, var(--vp-cyan), transparent);
+		box-shadow: 0 0 12px var(--vp-cyan);
+		animation: vp-scan 2.6s ease-in-out infinite;
+		opacity: 0.7;
+	}
+	.vp-qr-box img { width: 172px; height: 172px; image-rendering: pixelated; border-radius: 8px; }
+
+	/* ---------------- empty state ---------------- */
+	.vp-dash-empty {
+		border: 1.5px dashed rgba(139, 92, 246, 0.4);
+		background: rgba(139, 92, 246, 0.05);
+		border-radius: 16px;
+		padding: 2rem 1.5rem;
+		text-align: center;
+	}
+	.vp-dash-empty .vp-eicon {
+		font-size: 1.7rem; margin-bottom: 0.5rem;
+		display: inline-block;
+		animation: vp-float 4s ease-in-out infinite;
+	}
+
+	/* ---------------- toast ---------------- */
+	.vp-toast {
+		position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+		z-index: 1080; min-width: 320px; max-width: 92vw;
+		border-radius: 12px; padding: 0.85rem 1.15rem; font-weight: 700;
+		border: 1px solid var(--vp-line);
+		box-shadow: 0 14px 40px rgba(0,0,0,0.5); display: none;
+		text-align: center; color: var(--vp-ink);
+		backdrop-filter: blur(12px);
+		animation: vp-toastin 0.25s ease both;
+	}
+	.vp-toast.success { background: rgba(16, 40, 30, 0.92); border-color: rgba(52,211,153,0.4); }
+	.vp-toast.error { background: rgba(44, 18, 26, 0.92); border-color: rgba(251,113,133,0.4); }
+	.vp-toast.info { background: rgba(18, 26, 48, 0.92); border-color: rgba(34,211,238,0.35); }
+
+	.vp-footer-line { text-align: center; margin-top: 1.6rem; font-size: 0.8rem; color: var(--vp-muted); }
+	.vp-footer-line a { color: var(--vp-cyan); font-weight: 700; text-decoration: none; transition: color 0.2s; }
+	.vp-footer-line a:hover { color: #7dd8f0; text-decoration: underline; }
+
+	/* ---------------- animations ---------------- */
+	@keyframes vp-drift {
+		from { transform: translate(0, 0) scale(1); }
+		to { transform: translate(28px, 18px) scale(1.12); }
+	}
+	@keyframes vp-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+	@keyframes vp-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+	@keyframes vp-ping {
+		0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }
+		70% { box-shadow: 0 0 0 11px rgba(52, 211, 153, 0); }
+		100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+	}
+	@keyframes vp-scan { 0%, 100% { top: 12%; } 50% { top: 84%; } }
+	@keyframes vp-fadeup { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+	@keyframes vp-toastin { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+	@media (prefers-reduced-motion: reduce) {
+		.vp-hero::before, .vp-hero::after, .vp-pass-mini, .vp-qr-box::after,
+		.vp-kicker .vp-kdot, .vp-live .dot, .vp-dash-empty .vp-eicon, .vp-toast {
+			animation: none !important;
+		}
+		.vp-timeline .vp-item, .vp-qr-box { animation: none; }
+		#vp-dash-passes .card.vp-pass, #vp-dash-passes .card.vp-pass:hover { transform: none; box-shadow: none; }
 	}
 
 	#vp-print-area { display: none; }
@@ -109,99 +394,111 @@
 {% endblock %}
 
 {% block page_content %}
-<div class="container py-5">
+<div class="container py-4">
+	<div class="vp-page">
 
-	<div class="vp-hero">
-		<div class="vp-kicker">Visitor Pass Tracker</div>
-		<h1>Visitor Pass Portal</h1>
-		<p>Fill in your details once — then watch your visit status live on this page.
-		The moment your request is approved, your entry pass QR appears here automatically.
-		No login needed.</p>
-	</div>
+		<!-- ======================= HERO ======================= -->
+		<div class="vp-hero">
+			<div class="vp-hero-copy">
+				<span class="vp-kicker"><span class="vp-kdot"></span>Visitor Pass Tracker</span>
+				<h1>Visitor Pass Portal</h1>
+				<p>Fill in your details once — then <b>watch your visit status live</b> on this page.
+				The moment your request is approved, your <b>entry pass QR appears here automatically</b>.
+				No login needed.</p>
+			</div>
+			<div class="vp-pass-mini" aria-hidden="true">
+				<div class="vp-pm-top"><span>Guest</span><span>PASS</span></div>
+				<div class="vp-pm-name">Your Name</div>
+				<div class="vp-pm-chip"></div>
+				<div class="vp-pm-qr"></div>
+			</div>
+		</div>
 
-	<div class="vp-live mb-4" id="vp-live-status" style="display:none">
-		<span class="dot"></span>
-		<span id="vp-live-text">Live updates are on — you'll be notified here.</span>
-		<a id="vp-live-stop">Stop</a>
-	</div>
+		<div class="vp-live" id="vp-live-status" style="display:none">
+			<span class="dot"></span>
+			<span id="vp-live-text">Live updates are on — you'll be notified here.</span>
+			<a id="vp-live-stop">Stop</a>
+		</div>
 
-	<div class="row">
-		<!-- ======================= LEFT : REGISTER FORM ======================= -->
-		<div class="col-lg-5 mb-4">
-			<div class="vp-card h-100">
-				<h5 class="font-weight-bold mb-1">Register / Track My Visit</h5>
-				<p class="vp-hint mb-4">Register once — your details are reused for every future visit.
-				Already registered? Just enter your phone number to track your visit.</p>
+		<div class="row">
+			<!-- ======================= LEFT : REGISTER FORM ======================= -->
+			<div class="col-lg-5 mb-4">
+				<div class="vp-card h-100">
+					<h5>Register / Track My Visit</h5>
+					<p class="vp-hint mb-4">Register once — your details are reused for every future visit.
+					Already registered? Just enter your phone number to track your visit.</p>
 
-				<form id="vp-register-form">
-					<div class="form-group">
-						<label for="reg-name">Full Name <span class="vp-hint">(only for new visitors)</span></label>
-						<input type="text" class="form-control" id="reg-name"
-							placeholder="e.g. Priya Sharma">
-					</div>
-					<div class="form-group">
-						<label for="reg-phone">Phone *</label>
-						<input type="tel" class="form-control" id="reg-phone" required
-							placeholder="e.g. 98765 43210">
-					</div>
-					<div class="form-group">
-						<label for="reg-email">Email</label>
-						<input type="email" class="form-control" id="reg-email"
-							placeholder="you@example.com">
-					</div>
-					<div class="form-group">
-						<label for="reg-company">Company</label>
-						<input type="text" class="form-control" id="reg-company"
-							placeholder="Company you represent">
-					</div>
-					<div class="form-group">
-						<label for="reg-id-type">ID Proof Type</label>
-						<select class="form-control" id="reg-id-type">
-							{% for opt in id_proof_options %}
-							<option value="{{ opt }}">{{ opt }}</option>
-							{% endfor %}
-						</select>
-					</div>
-					<div class="form-group">
-						<label for="reg-id-no">ID Proof Number</label>
-						<input type="text" class="form-control" id="reg-id-no"
-							placeholder="Last 4 digits are enough">
-					</div>
-					<button type="submit" class="btn btn-primary w-100" id="reg-submit">
-						Register &amp; Track
-					</button>
-				</form>
+					<form id="vp-register-form">
+						<div class="form-group">
+							<label for="reg-name">Full Name <span class="vp-hint">(only for new visitors)</span></label>
+							<input type="text" class="form-control" id="reg-name"
+								placeholder="e.g. Priya Sharma">
+						</div>
+						<div class="form-group">
+							<label for="reg-phone">Phone *</label>
+							<input type="tel" class="form-control" id="reg-phone" required
+								placeholder="e.g. 98765 43210">
+						</div>
+						<div class="form-group">
+							<label for="reg-email">Email</label>
+							<input type="email" class="form-control" id="reg-email"
+								placeholder="you@example.com">
+						</div>
+						<div class="form-group">
+							<label for="reg-company">Company</label>
+							<input type="text" class="form-control" id="reg-company"
+								placeholder="Company you represent">
+						</div>
+						<div class="form-group">
+							<label for="reg-id-type">ID Proof Type</label>
+							<select class="form-control" id="reg-id-type">
+								{% for opt in id_proof_options %}
+								<option value="{{ opt }}">{{ opt }}</option>
+								{% endfor %}
+							</select>
+						</div>
+						<div class="form-group">
+							<label for="reg-id-no">ID Proof Number</label>
+							<input type="text" class="form-control" id="reg-id-no"
+								placeholder="Last 4 digits are enough">
+						</div>
+						<button type="submit" class="vp-btn-primary" id="reg-submit">
+							Register &amp; Track
+						</button>
+					</form>
 
-				<div id="vp-register-result" class="alert alert-success mt-3 mb-0" style="display:none">
-					<b id="vp-register-title"></b>
-					<p class="mb-0 mt-1" id="vp-register-msg"></p>
+					<div class="vp-register-result" id="vp-register-result">
+						<b id="vp-register-title"></b>
+						<p class="mb-0 mt-1" id="vp-register-msg"></p>
+					</div>
+				</div>
+			</div>
+
+			<!-- ======================= RIGHT : LIVE STATUS ======================= -->
+			<div class="col-lg-7">
+				<div class="vp-card mb-3" id="vp-dashboard" style="display:none">
+					<div class="d-flex justify-content-between align-items-center mb-2">
+						<h5 class="mb-0">Live Visit Status</h5>
+						<span class="vp-hint" id="vp-dash-phone"></span>
+					</div>
+					<h6 class="mt-3 mb-1">My Requests</h6>
+					<div id="vp-dash-requests"></div>
+					<hr class="my-4" style="border-color: var(--vp-line);">
+					<h6 class="mb-1">My Entry Passes</h6>
+					<div id="vp-dash-passes"></div>
+				</div>
+				<div class="vp-dash-empty" id="vp-dash-empty">
+					<div class="vp-eicon">🛂</div>
+					<p class="mb-0 vp-hint">Fill in the form on the left and your live visit status will
+					appear here — requests, approvals, and your entry pass QR, all in real time.</p>
 				</div>
 			</div>
 		</div>
 
-		<!-- ======================= RIGHT : LIVE STATUS ======================= -->
-		<div class="col-lg-7">
-			<div class="vp-card mb-3" id="vp-dashboard" style="display:none">
-				<div class="d-flex justify-content-between align-items-center mb-2">
-					<h5 class="font-weight-bold mb-0">Live Visit Status</h5>
-					<span class="vp-hint" id="vp-dash-phone"></span>
-				</div>
-				<h6 class="font-weight-bold mt-3 mb-1">My Requests</h6>
-				<div id="vp-dash-requests"></div>
-				<hr class="my-4">
-				<h6 class="font-weight-bold mb-1">My Entry Passes</h6>
-				<div id="vp-dash-passes"></div>
-			</div>
-			<div class="vp-card" id="vp-dash-empty">
-				<p class="mb-0 vp-hint">Fill in the form on the left and your live visit status will
-				appear here — requests, approvals, and your entry pass QR, all in real time.</p>
-			</div>
+		<div class="vp-footer-line">
+			Employees: raise a visit request from the
+			<a href="/request-a-visit">Request a Visit</a> form.
 		</div>
-	</div>
-
-	<div class="text-center mt-4 vp-hint">
-		Employees: raise a visit request from the
-		<a href="/request-a-visit">Request a Visit</a> form.
 	</div>
 </div>
 
@@ -425,7 +722,7 @@
 					(v.visit_end_date && v.visit_end_date !== v.visit_date ? " → " + esc(v.visit_end_date) : "") +
 					" · " + esc(v.purpose || "Visit") + " · " + esc(v.location_gate || "Gate TBD") + "</div>" +
 					(v.workflow_state === "Rejected" && v.rejection_reason ?
-						'<div class="text-danger vp-hint mt-1">Reason: ' + esc(v.rejection_reason) + "</div>" : "") +
+						'<div class="vp-hint mt-1 vp-reason">Reason: ' + esc(v.rejection_reason) + "</div>" : "") +
 					"</div>";
 			});
 			html += "</div>";
@@ -472,8 +769,8 @@
 					'<img id="qr-' + esc(p.name) + '" src="" alt="Loading QR…">' +
 					'<div class="vp-hint mt-2">Show this screen at the gate or scan the QR</div>' +
 					'<div class="mt-2">' +
-					'<button class="btn btn-primary btn-sm" data-qr-dl="' + esc(p.name) + '">Download</button> ' +
-					'<button class="btn btn-outline-secondary btn-sm" data-qr-print="' + esc(p.name) + '">Print</button>' +
+					'<button class="vp-btn-ghost" data-qr-dl="' + esc(p.name) + '">⬇ Download</button> ' +
+					'<button class="vp-btn-ghost" data-qr-print="' + esc(p.name) + '">🖨 Print</button>' +
 					"</div></div>";
 			} else if (active) {
 				html += '<p class="vp-hint mt-2 mb-0">Pass is active — the QR will arrive by email / SMS.</p>';
