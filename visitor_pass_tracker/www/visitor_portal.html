@@ -860,7 +860,13 @@
 			steps[0].state = "done";
 			steps[1].state = "done";
 			steps[2].state = "done";
-		} else if (/approv|accept|issue/.test(st)) {
+		} else if (st === "approved") {
+			// approval is complete - the pass is being issued
+			steps[0].state = "done";
+			steps[1].state = "done";
+			steps[2].state = "active";
+		} else if (/approv|pending/.test(st)) {
+			// waiting on the approver
 			steps[0].state = "done";
 			steps[1].state = "active";
 		} else {

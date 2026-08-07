@@ -310,6 +310,32 @@ manual desk entries are distinguishable from hardware scans.
     window and the live pass link (`/visitor_portal?pass=PASS-...`) in one tap
     - the receiver opens the same live pass page a QR scan shows, no login
     needed.
+  - **Redesigned portal UX** - the register/track section and the live status
+    panel were polished to match the dark navy + cyan/purple hero (all
+    client-side in `visitor_portal.html`, no backend changes):
+    - **Form panel** - the "Register / Track My Visit" title uses the same
+      bright gradient text as the hero heading; inputs are glassmorphism
+      (semi-transparent background, 1px white/10 border, rounded-xl) with
+      left-aligned inline icons and a cyan focus ring. The **phone field
+      validates in real time** - red border + error text for fewer than 10 or
+      more than 15 digits, a green check when valid, and invalid numbers
+      block submission. The submit button is a solid **cyan → purple**
+      gradient with hover scale/glow and a loading-spinner state.
+    - **Live status stepper** - the status panel starts as an empty state with
+      an animated pulse ring ("Waiting for your details…"); once a request
+      exists it becomes a horizontal stepper **Requested → Approved → Pass
+      Ready** whose connector lines fill cyan→violet as the request
+      progresses, with a pulsing "active" node and a red rejected state that
+      surfaces the rejection reason.
+    - **Guest Pass "arrival" card** - when a pass turns Active its QR renders
+      inside a card styled exactly like the hero's preview card (GUEST/PASS
+      label, visitor name, gold chip, white QR block). The identical card
+      appears in the dashboard's "My Entry Passes" and the QR-scan view - the
+      scan view embeds the QR directly (no phone lookup) and keeps Download /
+      Print / WhatsApp / Email.
+    - **Polish** - 24-32px card padding, 16px field gaps, soft cyan glow
+      shadows, fade-in-up on scroll, the dashboard re-animates on every live
+      status update, and all motion respects `prefers-reduced-motion`.
   The page works with the standard Frappe website chrome (no login, no extra
   setup - CSRF is handled by `frappe.call`); a **Visitor Portal** shortcut was
   added to the desk workspace.
