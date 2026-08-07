@@ -160,13 +160,13 @@
 	.vp-card {
 		background: var(--vp-glass);
 		border: 1px solid var(--vp-line);
-		border-radius: 16px;
-		padding: 1.5rem;
-		box-shadow: 0 14px 34px rgba(3, 7, 20, 0.35);
+		border-radius: 18px;
+		padding: clamp(1.5rem, 2.5vw, 2rem); /* 24-32px */
+		box-shadow: 0 14px 34px rgba(3, 7, 20, 0.35), 0 0 40px rgba(56, 189, 248, 0.08);
 		backdrop-filter: blur(10px);
 		transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
 	}
-	.vp-card:hover { border-color: rgba(139, 92, 246, 0.35); }
+	.vp-card:hover { border-color: rgba(139, 92, 246, 0.35); transform: translateY(-2px); }
 	.vp-card h5 { font-weight: 800; letter-spacing: -0.2px; margin-bottom: 0.25rem; }
 	.vp-card h6 { font-weight: 700; color: var(--vp-muted); text-transform: uppercase; letter-spacing: 1.5px; font-size: 0.72rem; }
 
@@ -177,18 +177,60 @@
 		font-size: 0.7rem; font-weight: 700; letter-spacing: 1.2px;
 		text-transform: uppercase; color: var(--vp-muted); margin-bottom: 0.35rem;
 	}
+	.vp-card .form-group { margin-bottom: 1rem; } /* 16px gap between fields */
+
+	/* gradient section title - matches the hero h1, just smaller (24-28px) */
+	.vp-title-grad {
+		font-size: clamp(1.5rem, 2.6vw, 1.75rem);
+		font-weight: 800; letter-spacing: -0.3px; margin: 0 0 0.5rem;
+		background: linear-gradient(90deg, #f0f4ff 10%, var(--vp-cyan) 55%, var(--vp-violet) 100%);
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+		color: transparent;
+	}
+	.vp-card h5.vp-title-grad { margin-bottom: 0.6rem; }
+	.vp-card h5.vp-title-grad.vp-title-grad-sm { font-size: 1.35rem; }
+	@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+		.vp-title-grad { background: none; color: var(--vp-ink); -webkit-text-fill-color: var(--vp-ink); }
+	}
+
+	/* glassmorphism inputs + inline icons + real-time validation */
+	.vp-input-wrap { position: relative; }
+	.vp-input-icon {
+		position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%);
+		width: 16px; height: 16px; color: #5a6488; pointer-events: none; z-index: 1;
+		transition: color 0.2s;
+	}
+	.vp-card .vp-input-wrap .form-control { padding-left: 2.35rem; }
+	.vp-input-wrap:focus-within .vp-input-icon { color: var(--vp-cyan); }
+	.vp-input-valid {
+		position: absolute; right: 0.85rem; top: 50%; transform: translateY(-50%);
+		width: 17px; height: 17px; color: var(--vp-green); display: none; pointer-events: none;
+	}
+	.vp-field .vp-input-wrap .form-control { padding-right: 2.4rem; }
+	.vp-field-error {
+		display: none; font-size: 0.75rem; font-weight: 600;
+		color: var(--vp-red); margin-top: 0.35rem;
+	}
+	.vp-field.invalid .form-control {
+		border-color: rgba(251, 113, 133, 0.65) !important;
+		box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.15) !important;
+	}
+	.vp-field.invalid .vp-field-error { display: block; }
+	.vp-field.valid .vp-input-valid { display: block; }
 	.vp-card .form-control {
-		background: rgba(10, 16, 36, 0.7);
-		border: 1px solid rgba(255, 255, 255, 0.12);
-		border-radius: 10px;
+		background: rgba(255, 255, 255, 0.05); /* bg-white/5 */
+		border: 1px solid rgba(255, 255, 255, 0.1); /* border-white/10 */
+		border-radius: 12px; /* rounded-xl */
 		color: var(--vp-ink);
-		padding: 0.55rem 0.85rem;
+		padding: 0.62rem 0.95rem;
 		transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 	}
 	.vp-card .form-control:focus {
-		background: rgba(12, 19, 42, 0.9);
-		border-color: var(--vp-violet);
-		box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25);
+		background: rgba(255, 255, 255, 0.08);
+		border-color: var(--vp-cyan);
+		box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.5); /* ring-2 ring-cyan-400/50 */
 		color: var(--vp-ink);
 	}
 	.vp-card .form-control::placeholder { color: #5a6488; }
@@ -212,20 +254,21 @@
 		display: inline-block;
 		width: 100%;
 		border: none;
-		border-radius: 11px;
-		padding: 0.72rem 1.2rem;
+		border-radius: 12px;
+		padding: 0.75rem 1.2rem;
 		font-weight: 800; letter-spacing: 0.6px;
 		color: #fff;
-		background: linear-gradient(120deg, var(--vp-violet) 0%, var(--vp-blue) 55%, var(--vp-cyan) 130%);
+		background: linear-gradient(120deg, var(--vp-cyan) 0%, var(--vp-blue) 50%, var(--vp-violet) 120%);
 		background-size: 180% 100%;
 		background-position: 0% 0%;
-		box-shadow: 0 10px 26px rgba(124, 93, 250, 0.35);
+		box-shadow: 0 10px 26px rgba(34, 211, 238, 0.25), 0 4px 18px rgba(139, 92, 246, 0.3);
 		transition: transform 0.18s, box-shadow 0.25s, background-position 0.4s;
 		cursor: pointer;
 	}
-	.vp-btn-primary:hover { transform: translateY(-2px); background-position: 100% 0%; box-shadow: 0 14px 32px rgba(34, 211, 238, 0.3); }
-	.vp-btn-primary:active { transform: translateY(0); }
+	.vp-btn-primary:hover { transform: translateY(-2px) scale(1.02); background-position: 100% 0%; box-shadow: 0 14px 34px rgba(34, 211, 238, 0.4), 0 0 26px rgba(139, 92, 246, 0.45); }
+	.vp-btn-primary:active { transform: translateY(0) scale(0.99); }
 	.vp-btn-primary:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+	.vp-btn-primary .spinner-border { width: 1.05rem; height: 1.05rem; border-width: 2px; vertical-align: -0.15rem; }
 
 	.vp-btn-ghost {
 		display: inline-block;
@@ -311,6 +354,62 @@
 	.vp-status.expired, .vp-status.other, .vp-status.draft, .vp-status.cancelled { color: var(--vp-muted); border-color: var(--vp-line); }
 	.vp-status.expired::before, .vp-status.other::before, .vp-status.draft::before, .vp-status.cancelled::before { background: var(--vp-muted); }
 
+	/* ---------------- status stepper ---------------- */
+	.vp-stepper { display: flex; align-items: flex-start; margin: 1.3rem 0 0.5rem; }
+	.vp-step { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; text-align: center; }
+	.vp-step-node {
+		width: 38px; height: 38px; border-radius: 50%;
+		display: flex; align-items: center; justify-content: center;
+		background: rgba(255, 255, 255, 0.06);
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		color: var(--vp-muted);
+		transition: all 0.3s ease; z-index: 1;
+	}
+	.vp-step-node svg { width: 18px; height: 18px; }
+	.vp-step-line {
+		position: absolute; top: 19px; left: calc(50% + 24px);
+		width: calc(100% - 48px); height: 2px;
+		background: rgba(255, 255, 255, 0.12);
+		transition: background 0.4s ease, box-shadow 0.4s ease;
+	}
+	.vp-step:last-child .vp-step-line { display: none; }
+	.vp-step.done .vp-step-node {
+		background: linear-gradient(135deg, rgba(34, 211, 238, 0.25), rgba(139, 92, 246, 0.3));
+		border-color: var(--vp-cyan); color: var(--vp-cyan);
+		box-shadow: 0 0 14px rgba(34, 211, 238, 0.35);
+	}
+	.vp-step.done .vp-step-line {
+		background: linear-gradient(90deg, var(--vp-cyan), var(--vp-violet));
+		box-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
+	}
+	.vp-step.active .vp-step-node {
+		background: linear-gradient(135deg, var(--vp-blue), var(--vp-violet));
+		border-color: var(--vp-violet); color: #fff;
+		animation: vp-step-pulse 2s ease-in-out infinite;
+	}
+	.vp-step.active .vp-step-line {
+		background: linear-gradient(90deg, rgba(34, 211, 238, 0.7), rgba(139, 92, 246, 0.7));
+	}
+	.vp-step.rejected .vp-step-node {
+		background: rgba(251, 113, 133, 0.12);
+		border-color: var(--vp-red); color: var(--vp-red);
+		box-shadow: 0 0 14px rgba(251, 113, 133, 0.3);
+	}
+	.vp-step-label {
+		margin-top: 0.5rem; font-size: 0.68rem; font-weight: 800;
+		letter-spacing: 0.6px; text-transform: uppercase; color: var(--vp-muted);
+		transition: color 0.3s;
+	}
+	.vp-step.done .vp-step-label { color: var(--vp-cyan); }
+	.vp-step.active .vp-step-label { color: var(--vp-ink); }
+	.vp-step.rejected .vp-step-label { color: var(--vp-red); }
+	.vp-stepper-reason { font-size: 0.8rem; color: var(--vp-red); text-align: center; margin: 0.7rem 0 0; }
+	@media (max-width: 575px) {
+		.vp-step-node { width: 32px; height: 32px; }
+		.vp-step-line { top: 16px; }
+		.vp-step-label { font-size: 0.58rem; letter-spacing: 0.2px; }
+	}
+
 	/* ---------------- timeline ---------------- */
 	.vp-timeline { position: relative; padding-left: 1.5rem; }
 	.vp-timeline::before {
@@ -348,39 +447,76 @@
 	#vp-dash-passes .card.vp-pass.used, #vp-scan-card .card.vp-pass.used { border-left-color: var(--vp-green); }
 	#vp-dash-passes .card-body, #vp-scan-card .card-body { background: transparent; color: var(--vp-ink); }
 
-	.vp-qr-box {
-		position: relative;
-		background: #0a0f24;
-		border: 1.5px dashed rgba(139, 92, 246, 0.5);
-		border-radius: 14px;
-		padding: 1.2rem;
-		overflow: hidden;
-		animation: vp-fadeup 0.5s ease both;
+	/* Guest Pass "arrival" card - mirrors the hero preview card */
+	.vp-pass-arrive {
+		width: min(260px, 100%);
+		margin: 1rem auto 0.3rem;
+		border-radius: 16px;
+		padding: 1rem;
+		background: linear-gradient(150deg, rgba(255,255,255,0.12), rgba(255,255,255,0.03));
+		border: 1px solid rgba(255,255,255,0.16);
+		box-shadow: 0 14px 34px rgba(0,0,0,0.4), 0 0 30px rgba(34, 211, 238, 0.12);
+		backdrop-filter: blur(6px);
+		animation: vp-arrive 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 	}
-	.vp-qr-box::after {
-		content: "";
-		position: absolute;
-		left: 8px; right: 8px; height: 2px;
-		background: linear-gradient(90deg, transparent, var(--vp-cyan), transparent);
-		box-shadow: 0 0 12px var(--vp-cyan);
-		animation: vp-scan 2.6s ease-in-out infinite;
-		opacity: 0.7;
+	.vp-pass-arrive .vp-pa-top {
+		display: flex; justify-content: space-between; align-items: center;
+		font-size: 0.6rem; letter-spacing: 1.5px; color: var(--vp-cyan);
+		text-transform: uppercase; font-weight: 800;
 	}
-	.vp-qr-box img { width: 172px; height: 172px; image-rendering: pixelated; border-radius: 8px; }
+	.vp-pass-arrive .vp-pa-name {
+		margin: 0.6rem 0 0.45rem; font-size: 0.95rem; font-weight: 700; color: #fff;
+		white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+	}
+	.vp-pass-arrive .vp-pa-chip {
+		width: 28px; height: 20px; border-radius: 4px;
+		background: linear-gradient(135deg, #f5d76e, #c9a227);
+		box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25);
+		margin-bottom: 0.55rem;
+	}
+	.vp-pass-arrive .vp-pa-qr {
+		width: 100%; aspect-ratio: 1; border-radius: 10px;
+		background: #fff; display: flex; align-items: center; justify-content: center;
+		border: 1px solid rgba(255,255,255,0.14);
+	}
+	.vp-pass-arrive .vp-pa-qr img { width: 86%; height: 86%; object-fit: contain; image-rendering: pixelated; }
+	.vp-pass-arrive .vp-pa-meta { margin-top: 0.7rem; font-size: 0.78rem; color: var(--vp-muted); }
 
 	/* ---------------- empty state ---------------- */
 	.vp-dash-empty {
 		border: 1.5px dashed rgba(139, 92, 246, 0.4);
 		background: rgba(139, 92, 246, 0.05);
-		border-radius: 16px;
-		padding: 2rem 1.5rem;
+		border-radius: 18px;
+		padding: clamp(1.8rem, 4vw, 2.6rem) 1.5rem;
 		text-align: center;
+		box-shadow: 0 0 40px rgba(56, 189, 248, 0.08);
 	}
-	.vp-dash-empty .vp-eicon {
-		font-size: 1.7rem; margin-bottom: 0.5rem;
-		display: inline-block;
-		animation: vp-float 4s ease-in-out infinite;
+	.vp-eicon-pulse { position: relative; width: 64px; height: 64px; margin: 0 auto 1rem; }
+	.vp-eicon-pulse::before, .vp-eicon-pulse::after {
+		content: ""; position: absolute; inset: 0; border-radius: 50%;
+		border: 1.5px solid rgba(34, 211, 238, 0.35);
+		animation: vp-pulse-ring 2.4s ease-out infinite;
 	}
+	.vp-eicon-pulse::after { animation-delay: 1.2s; }
+	.vp-eicon-pulse .vp-eicon {
+		position: absolute; inset: 0; border-radius: 50%;
+		display: flex; align-items: center; justify-content: center;
+		background: rgba(34, 211, 238, 0.08);
+		border: 1px solid rgba(34, 211, 238, 0.3);
+		color: var(--vp-cyan);
+		box-shadow: 0 0 24px rgba(34, 211, 238, 0.15), inset 0 0 18px rgba(34, 211, 238, 0.08);
+	}
+	.vp-eicon-pulse .vp-eicon svg { width: 26px; height: 26px; }
+	.vp-empty-title { font-weight: 700; color: var(--vp-ink); font-size: 1.05rem; margin-bottom: 0.3rem; }
+
+	/* ---------------- scroll reveal ---------------- */
+	.vp-reveal {
+		opacity: 0; transform: translateY(22px);
+		transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+		will-change: opacity, transform;
+	}
+	.vp-reveal.in { opacity: 1; transform: translateY(0); }
+	.vp-dash-anim { animation: vp-fadeup 0.5s ease both; }
 
 	/* ---------------- toast ---------------- */
 	.vp-toast {
@@ -413,16 +549,29 @@
 		70% { box-shadow: 0 0 0 11px rgba(52, 211, 153, 0); }
 		100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
 	}
-	@keyframes vp-scan { 0%, 100% { top: 12%; } 50% { top: 84%; } }
+	@keyframes vp-pulse-ring {
+		0% { transform: scale(0.92); opacity: 0.9; }
+		100% { transform: scale(1.55); opacity: 0; }
+	}
+	@keyframes vp-step-pulse {
+		0%, 100% { box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.25), 0 0 18px rgba(139, 92, 246, 0.45); }
+		50% { box-shadow: 0 0 0 8px rgba(139, 92, 246, 0.12), 0 0 26px rgba(139, 92, 246, 0.6); }
+	}
+	@keyframes vp-arrive {
+		from { opacity: 0; transform: translateY(14px) scale(0.94); }
+		to { opacity: 1; transform: translateY(0) scale(1); }
+	}
 	@keyframes vp-fadeup { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 	@keyframes vp-toastin { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
 	@media (prefers-reduced-motion: reduce) {
-		.vp-hero::before, .vp-hero::after, .vp-pass-mini, .vp-qr-box::after,
-		.vp-kicker .vp-kdot, .vp-live .dot, .vp-dash-empty .vp-eicon, .vp-toast {
+		.vp-hero::before, .vp-hero::after, .vp-pass-mini,
+		.vp-kicker .vp-kdot, .vp-live .dot, .vp-eicon-pulse::before, .vp-eicon-pulse::after,
+		.vp-step.active .vp-step-node, .vp-pass-arrive, .vp-toast {
 			animation: none !important;
 		}
-		.vp-timeline .vp-item, .vp-qr-box { animation: none; }
+		.vp-reveal { opacity: 1; transform: none; transition: none; }
+		.vp-timeline .vp-item { animation: none; }
 		#vp-dash-passes .card.vp-pass, #vp-dash-passes .card.vp-pass:hover,
 		#vp-scan-card .card.vp-pass, #vp-scan-card .card.vp-pass:hover { transform: none; box-shadow: none; }
 	}
@@ -441,7 +590,7 @@
 	<div class="vp-page">
 
 		<!-- ======================= HERO ======================= -->
-		<div class="vp-hero">
+		<div class="vp-hero vp-reveal">
 			<div class="vp-hero-copy">
 				<span class="vp-kicker"><span class="vp-kdot"></span>Visitor Pass Tracker</span>
 				<h1>Visitor Pass Portal</h1>
@@ -470,44 +619,64 @@
 		<div class="row">
 			<!-- ======================= LEFT : REGISTER FORM ======================= -->
 			<div class="col-lg-5 mb-4">
-				<div class="vp-card h-100">
-					<h5>Register / Track My Visit</h5>
+				<div class="vp-card h-100 vp-reveal">
+					<h5 class="vp-title-grad">Register / Track My Visit</h5>
 					<p class="vp-hint mb-4">Register once — your details are reused for every future visit.
 					Already registered? Just enter your phone number to track your visit.</p>
 
-					<form id="vp-register-form">
+					<form id="vp-register-form" novalidate>
 						<div class="form-group">
 							<label for="reg-name">Full Name <span class="vp-hint">(only for new visitors)</span></label>
-							<input type="text" class="form-control" id="reg-name"
-								placeholder="e.g. Priya Sharma">
+							<div class="vp-input-wrap">
+								<svg class="vp-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+								<input type="text" class="form-control" id="reg-name"
+									placeholder="e.g. Priya Sharma">
+							</div>
 						</div>
-						<div class="form-group">
+						<div class="form-group vp-field" id="vp-field-phone">
 							<label for="reg-phone">Phone *</label>
-							<input type="tel" class="form-control" id="reg-phone" required
-								placeholder="e.g. 98765 43210">
+							<div class="vp-input-wrap">
+								<svg class="vp-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+								<input type="tel" class="form-control" id="reg-phone" required
+									placeholder="e.g. 98765 43210">
+								<svg class="vp-input-valid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+							</div>
+							<div class="vp-field-error" id="vp-phone-error">Please enter a valid phone number (10–15 digits).</div>
 						</div>
 						<div class="form-group">
 							<label for="reg-email">Email</label>
-							<input type="email" class="form-control" id="reg-email"
-								placeholder="you@example.com">
+							<div class="vp-input-wrap">
+								<svg class="vp-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+								<input type="email" class="form-control" id="reg-email"
+									placeholder="you@example.com">
+							</div>
 						</div>
 						<div class="form-group">
 							<label for="reg-company">Company</label>
-							<input type="text" class="form-control" id="reg-company"
-								placeholder="Company you represent">
+							<div class="vp-input-wrap">
+								<svg class="vp-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+								<input type="text" class="form-control" id="reg-company"
+									placeholder="Company you represent">
+							</div>
 						</div>
 						<div class="form-group">
 							<label for="reg-id-type">ID Proof Type</label>
-							<select class="form-control" id="reg-id-type">
-								{% for opt in id_proof_options %}
-								<option value="{{ opt }}">{{ opt }}</option>
-								{% endfor %}
-							</select>
+							<div class="vp-input-wrap">
+								<svg class="vp-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+								<select class="form-control" id="reg-id-type">
+									{% for opt in id_proof_options %}
+									<option value="{{ opt }}">{{ opt }}</option>
+									{% endfor %}
+								</select>
+							</div>
 						</div>
 						<div class="form-group">
 							<label for="reg-id-no">ID Proof Number</label>
-							<input type="text" class="form-control" id="reg-id-no"
-								placeholder="Last 4 digits are enough">
+							<div class="vp-input-wrap">
+								<svg class="vp-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/></svg>
+								<input type="text" class="form-control" id="reg-id-no"
+									placeholder="Last 4 digits are enough">
+							</div>
 						</div>
 						<button type="submit" class="vp-btn-primary" id="reg-submit">
 							Register &amp; Track
@@ -525,24 +694,29 @@
 			<div class="col-lg-7">
 				<div class="vp-card mb-3" id="vp-dashboard" style="display:none">
 					<div class="d-flex justify-content-between align-items-center mb-2">
-						<h5 class="mb-0">Live Visit Status</h5>
+						<h5 class="mb-0 vp-title-grad vp-title-grad-sm">Live Visit Status</h5>
 						<span class="vp-hint" id="vp-dash-phone"></span>
 					</div>
+					<div id="vp-stepper"></div>
 					<h6 class="mt-3 mb-1">My Requests</h6>
 					<div id="vp-dash-requests"></div>
 					<hr class="my-4" style="border-color: var(--vp-line);">
 					<h6 class="mb-1">My Entry Passes</h6>
 					<div id="vp-dash-passes"></div>
 				</div>
-				<div class="vp-dash-empty" id="vp-dash-empty">
-					<div class="vp-eicon">🛂</div>
-					<p class="mb-0 vp-hint">Fill in the form on the left and your live visit status will
-					appear here — requests, approvals, and your entry pass QR, all in real time.</p>
+				<div class="vp-dash-empty vp-reveal" id="vp-dash-empty">
+					<div class="vp-eicon-pulse">
+						<div class="vp-eicon">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" x2="17" y1="12" y2="12"/></svg>
+						</div>
+					</div>
+					<p class="vp-empty-title">Waiting for your details…</p>
+					<p class="mb-0 vp-hint">Submit the form on the left and your live visit status — requests, approvals, and your entry pass QR — will appear here in real time.</p>
 				</div>
 			</div>
 		</div>
 
-		<div class="vp-footer-line">
+		<div class="vp-footer-line vp-reveal">
 			Employees: raise a visit request from the
 			<a href="/request-a-visit">Request a Visit</a> form.
 		</div>
@@ -561,6 +735,9 @@
 	if (typeof frappe === "undefined" || !frappe.call) {
 		document.getElementById("vp-register-form").innerHTML =
 			'<div class="alert alert-danger">The portal script could not be loaded. Please refresh the page.</div>';
+		// reveal classes are hidden until the observer below runs - if the
+		// script died early, show everything so the page never renders blank
+		document.querySelectorAll(".vp-reveal").forEach(function (el) { el.classList.add("in"); });
 		return;
 	}
 
@@ -628,6 +805,84 @@
 				hour: "2-digit", minute: "2-digit"
 			});
 		} catch (e) { return esc(value); }
+	}
+
+	/* ---------------- form validation (real-time) ---------------- */
+	var phoneField = $("vp-field-phone");
+	var phoneInput = $("reg-phone");
+	var phoneError = $("vp-phone-error");
+	function phoneDigits(s) { return String(s || "").replace(/[^\d]/g, ""); }
+	function validatePhone(force) {
+		var val = phoneInput.value;
+		var digits = phoneDigits(val);
+		var ok = digits.length >= 10 && digits.length <= 15;
+		if (!force && !val.trim()) { ok = true; } // don't nag while the field is untouched
+		phoneField.classList.toggle("invalid", !ok);
+		phoneField.classList.toggle("valid", ok && !!val.trim());
+		if (phoneError) { phoneError.style.display = ok ? "none" : "block"; }
+		return ok;
+	}
+	phoneInput.addEventListener("input", function () { validatePhone(false); });
+	phoneInput.addEventListener("blur", function () { validatePhone(false); });
+
+	/* ---------------- status stepper ---------------- */
+	var STEP_ICONS = {
+		requested: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>',
+		approved: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>',
+		pass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>'
+	};
+
+	function renderStepper(visits, passes) {
+		var box = $("vp-stepper");
+		if (!box) { return; }
+		var latest = visits && visits.length ? visits[0] : null;
+		var hasActivePass = (passes || []).some(function (p) {
+			return /active|approved/.test(String(p.status || "").toLowerCase());
+		});
+		// a returning visitor may have an active pass even if no request row is
+		// in the current page - the stepper still shows the completed journey
+		if (!latest && !hasActivePass) { box.innerHTML = ""; return; }
+
+		var st = String(latest ? (latest.workflow_state || "") : "").toLowerCase();
+		var rejected = latest
+			? /reject|denied|declin|cancell/.test(st) || Number(latest.docstatus) === 2
+			: false;
+
+		var steps = [
+			{ label: "Requested", icon: "requested", state: "todo" },
+			{ label: "Approved", icon: "approved", state: "todo" },
+			{ label: "Pass Ready", icon: "pass", state: "todo" }
+		];
+
+		if (rejected) {
+			steps[0].state = "rejected";
+		} else if (hasActivePass) {
+			steps[0].state = "done";
+			steps[1].state = "done";
+			steps[2].state = "done";
+		} else if (/approv|accept|issue/.test(st)) {
+			steps[0].state = "done";
+			steps[1].state = "active";
+		} else {
+			steps[0].state = "active";
+		}
+
+		var html = '<div class="vp-stepper">';
+		steps.forEach(function (s, i) {
+			html += '<div class="vp-step ' + s.state + '">' +
+				'<div class="vp-step-node">' + STEP_ICONS[s.icon] + "</div>" +
+				'<div class="vp-step-line"></div>' +
+				'<div class="vp-step-label">' + s.label + "</div>" +
+				"</div>";
+		});
+		html += "</div>";
+		if (rejected) {
+			var cancelled = Number(latest.docstatus) === 2 || /cancell/.test(st);
+			html += '<p class="vp-stepper-reason">' +
+				esc(cancelled ? "This visit request was cancelled." :
+					(latest.rejection_reason || "Your visit request was not approved.")) + "</p>";
+		}
+		box.innerHTML = html;
 	}
 
 	/* ---------------- live updates ---------------- */
@@ -753,9 +1008,14 @@
 	function renderDashboard(res) {
 		var visits = res.visits || [];
 		var passes = res.passes || [];
-		$("vp-dashboard").style.display = "block";
+		var dash = $("vp-dashboard");
+		dash.style.display = "block";
+		dash.classList.remove("vp-dash-anim");
+		void dash.offsetWidth; // restart the entrance animation on every status update
+		dash.classList.add("vp-dash-anim");
 		$("vp-dash-empty").style.display = "none";
 		$("vp-dash-phone").textContent = dashboardPhone || "";
+		renderStepper(visits, passes);
 
 		var reqBox = $("vp-dash-requests");
 		if (!visits.length) {
@@ -815,6 +1075,30 @@
 		});
 	}
 
+	/* Guest Pass "arrival" card - mirrors the hero preview card so the same
+	   object appears in the dashboard AND the QR-scan view. When the QR is
+	   not inline yet (dashboard), renders the placeholder the async fetcher
+	   fills via getPassQr; the scan view passes qr_data_url directly. */
+	function passArriveCard(p) {
+		var qrImg = p.qr_data_url
+			? '<img src="' + esc(p.qr_data_url) + '" alt="Entry pass QR">'
+			: '<img id="qr-' + esc(p.name) + '" src="" alt="Loading QR…">';
+		return '<div class="vp-pass-arrive">' +
+			'<div class="vp-pa-top"><span>Guest</span><span>PASS</span></div>' +
+			'<div class="vp-pa-name">' + esc(p.visitor_name || "Guest") + '</div>' +
+			'<div class="vp-pa-chip"></div>' +
+			'<div class="vp-pa-qr">' + qrImg + "</div>" +
+			'<div class="vp-pa-meta">' + esc(p.name) + " · " + esc(p.gate || "Gate TBD") + "</div>" +
+			'<div class="mt-3 text-center">' +
+			'<button class="vp-btn-ghost" data-qr-dl="' + esc(p.name) + '">⬇ Download</button> ' +
+			'<button class="vp-btn-ghost" data-qr-print="' + esc(p.name) + '">🖨 Print</button>' +
+			"</div>" +
+			'<div class="mt-2 text-center">' +
+			'<button class="vp-btn-share-wa" data-vp-wa="' + esc(p.name) + '">💬 WhatsApp</button> ' +
+			'<button class="vp-btn-share-mail" data-vp-mail="' + esc(p.name) + '">✉️ Email</button>' +
+			"</div></div>";
+	}
+
 	function renderPasses(passes) {
 		var box = $("vp-dash-passes");
 		if (!passes.length) {
@@ -834,17 +1118,7 @@
 				'<div class="vp-hint mt-1">' + fmtDT(p.valid_from) + " → " + fmtDT(p.valid_till) +
 				" · " + esc(p.gate || "Gate TBD") + "</div>";
 			if (active && p.has_qr) {
-				html += '<div class="vp-qr-box text-center mt-3">' +
-					'<img id="qr-' + esc(p.name) + '" src="" alt="Loading QR…">' +
-					'<div class="vp-hint mt-2">Show this screen at the gate or scan the QR</div>' +
-					'<div class="mt-2">' +
-					'<button class="vp-btn-ghost" data-qr-dl="' + esc(p.name) + '">⬇ Download</button> ' +
-					'<button class="vp-btn-ghost" data-qr-print="' + esc(p.name) + '">🖨 Print</button>' +
-					"</div>" +
-					'<div class="mt-2">' +
-					'<button class="vp-btn-share-wa" data-vp-wa="' + esc(p.name) + '">💬 WhatsApp</button> ' +
-					'<button class="vp-btn-share-mail" data-vp-mail="' + esc(p.name) + '">✉️ Email</button>' +
-					"</div></div>";
+				html += passArriveCard(p);
 			} else if (active) {
 				html += '<p class="vp-hint mt-2 mb-0">Pass is active — the QR will arrive by email / SMS.</p>' +
 					'<div class="mt-2">' +
@@ -1000,6 +1274,11 @@
 
 	$("vp-register-form").addEventListener("submit", function (ev) {
 		ev.preventDefault();
+		if (!validatePhone(true)) {
+			phoneInput.focus();
+			toast("Please enter a valid phone number (10–15 digits).", "error");
+			return;
+		}
 		var btn = $("reg-submit");
 		var phone = $("reg-phone").value;
 		var name = $("reg-name").value;
@@ -1102,18 +1381,15 @@
 		scanPassData = p;
 		var active = /active|approved/.test(String(p.status || "").toLowerCase());
 		var cls = active ? "" : " " + String(p.status || "").toLowerCase();
+		// identical layout to the dashboard pass cards: header + validity row,
+		// then the Guest Pass "arrival" card (QR is already inline here)
 		var html = '<div class="card vp-pass mb-0' + cls + '"><div class="card-body">' +
 			'<div class="d-flex justify-content-between align-items-center"><b>' + esc(p.name) + "</b>" +
 			statusChip(p.status) + "</div>" +
-			'<div class="vp-hint mt-2">' + esc(p.visitor_name || "Visitor") + " · " +
-			fmtDT(p.valid_from) + " → " + fmtDT(p.valid_till) + " · " + esc(p.gate || "Gate TBD") + "</div>";
+			'<div class="vp-hint mt-1">' + fmtDT(p.valid_from) + " → " + fmtDT(p.valid_till) +
+			" · " + esc(p.gate || "Gate TBD") + "</div>";
 		if (active && p.qr_data_url) {
-			html += '<div class="vp-qr-box text-center mt-3"><img src="' + esc(p.qr_data_url) + '" alt="Entry pass QR">' +
-				'<div class="vp-hint mt-2">Show this screen at the gate — the QR opened this pass.</div>' +
-				'<div class="mt-2">' +
-				'<button class="vp-btn-share-wa" data-vp-wa="' + esc(p.name) + '">💬 WhatsApp</button> ' +
-				'<button class="vp-btn-share-mail" data-vp-mail="' + esc(p.name) + '">✉️ Email</button>' +
-				"</div></div>";
+			html += passArriveCard(p);
 		}
 		html += '<p class="vp-hint mt-3 mb-0">This page was opened by scanning your pass QR — its status updates here live.</p>' +
 			"</div></div>";
@@ -1121,6 +1397,29 @@
 		card.style.display = "block";
 
 		wireShareButtons(card);
+
+		// the scan view already has the QR inline - download/print use it
+		// directly (the dashboard variant fetches via getPassQr, which needs
+		// a phone number this view does not have)
+		card.querySelectorAll("[data-qr-dl]").forEach(function (b) {
+			b.addEventListener("click", function () {
+				if (!p.qr_data_url) { toast("QR is not available for this pass.", "error"); return; }
+				var a = document.createElement("a");
+				a.href = p.qr_data_url;
+				a.download = p.name + "-qr.png";
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				toast("QR image downloaded", "success");
+			});
+		});
+		card.querySelectorAll("[data-qr-print]").forEach(function (b) {
+			b.addEventListener("click", function () {
+				if (!p.qr_data_url) { toast("QR is not available for this pass.", "error"); return; }
+				printBadge({ name: p.name, visitor_name: p.visitor_name, gate: p.gate,
+					valid_from: p.valid_from, valid_till: p.valid_till, qr_data_url: p.qr_data_url });
+			});
+		});
 	}
 
 	function pollScanCard() {
@@ -1140,6 +1439,22 @@
 	if (scanPass) {
 		pollScanCard();
 		scanTimer = setInterval(pollScanCard, LIVE_INTERVAL_MS);
+	}
+
+	/* ---------------- scroll reveal ---------------- */
+	var revealEls = document.querySelectorAll(".vp-reveal");
+	if ("IntersectionObserver" in window) {
+		var revealObserver = new IntersectionObserver(function (entries) {
+			entries.forEach(function (entry) {
+				if (entry.isIntersecting) {
+					entry.target.classList.add("in");
+					revealObserver.unobserve(entry.target);
+				}
+			});
+		}, { threshold: 0.15 });
+		revealEls.forEach(function (el) { revealObserver.observe(el); });
+	} else {
+		revealEls.forEach(function (el) { el.classList.add("in"); });
 	}
 
 	/* ---------------- helpers ---------------- */
